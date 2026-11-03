@@ -31,13 +31,14 @@ Route::prefix('admin')->group(function () {
         Route::post('/admob/toggle', [DashboardController::class, 'toggleAdMob'])->name('admin.admob.toggle');
         Route::post('/admob/settings', [DashboardController::class, 'updateAdmobSettings'])->name('admin.admob.settings');
 
-        // Media Catalog
-        Route::get('/media', [DashboardController::class, 'media'])->name('admin.media.index');
-        Route::post('/media', [DashboardController::class, 'storeMedia'])->name('admin.media.store');
-        Route::delete('/media/{id}', [DashboardController::class, 'deleteMedia'])->name('admin.media.delete');
-
         // Watch Progress & Sync Telemetry
         Route::get('/watch-history', [DashboardController::class, 'watchHistory'])->name('admin.sync.index');
+
+        // Client App Error Telemetry Logs
+        Route::get('/errors', [DashboardController::class, 'errors'])->name('admin.errors.index');
+        Route::post('/errors/{id}/resolve', [DashboardController::class, 'resolveError'])->name('admin.errors.resolve');
+        Route::delete('/errors/{id}', [DashboardController::class, 'deleteError'])->name('admin.errors.delete');
+        Route::post('/errors/clear-resolved', [DashboardController::class, 'clearResolvedErrors'])->name('admin.errors.clear');
 
         // Remote App Settings
         Route::get('/settings', [DashboardController::class, 'settings'])->name('admin.settings.index');
