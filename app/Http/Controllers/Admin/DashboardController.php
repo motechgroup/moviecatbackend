@@ -4,13 +4,14 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\AdEvent;
+use App\Models\AppError;
 use App\Models\AppSetting;
 use App\Models\Bookmark;
 use App\Models\Device;
-use App\Models\User;
 use App\Models\WatchProgress;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Throwable;
 
@@ -33,23 +34,46 @@ class DashboardController extends Controller
                 'completedWatches' => WatchProgress::where('completed', true)->count(),
                 'totalBookmarks' => Bookmark::count(),
                 'adImpressions' => AdEvent::where('event_type', 'impression')->count(),
+                'unresolvedErrors' => AppError::where('resolved', false)->count(),
+                'totalErrors' => AppError::count(),
+                'totalCountries' => Device::distinct('country_code')->count('country_code'),
             ];
 
             $recentDevices = Device::orderByDesc('last_active_at')->take(6)->get();
-            $recentSyncs = WatchProgress::with('device')->orderByDesc('last_watched_at')->take(8)->get();
+            $recentSyncs = WatchProgress::with('device')->orderByDesc('last_watched_at')->take(6)->get();
+            $recentErrors = AppError::with('device')->orderByDesc('created_at')->take(5)->get();
+
+            // Top Countries Breakdown
+            $topCountries = Device::select('country', 'country_code', DB::raw('count(*) as count'))
+                ->whereNotNull('country')
+                ->groupBy('country', 'country_code')
+                ->orderByDesc('count')
+                ->take(6)
+                ->get();
+
         } catch (Throwable) {
             $stats = [
                 'totalDevices' => 0, 'activeNowDevices' => 0, 'activeTodayDevices' => 0,
                 'androidDevices' => 0, 'iosDevices' => 0, 'totalProgress' => 0,
                 'completedWatches' => 0, 'totalBookmarks' => 0, 'adImpressions' => 0,
+                'unresolvedErrors' => 0, 'totalErrors' => 0, 'totalCountries' => 0,
             ];
             $recentDevices = collect();
             $recentSyncs = collect();
+            $recentErrors = collect();
+            $topCountries = collect();
         }
 
         $adsEnabled = (bool)AppSetting::get('ads_enabled', true);
 
-        return view('admin.dashboard', compact('stats', 'recentDevices', 'recentSyncs', 'adsEnabled'));
+        return view('admin.dashboard', compact(
+            'stats',
+            'recentDevices',
+            'recentSyncs',
+            'recentErrors',
+            'topCountries',
+            'adsEnabled'
+        ));
     }
 
     // 2. Active Devices Fleet Page
@@ -64,15 +88,18 @@ class DashboardController extends Controller
             'activeToday' => Device::where('last_active_at', '>=', $recentActiveThreshold)->count(),
             'android' => Device::where('platform', 'android')->count(),
             'ios' => Device::where('platform', 'ios')->count(),
+            'countriesCount' => Device::distinct('country_code')->count('country_code'),
         ];
 
-        $query = Device::withCount(['watchProgress', 'bookmarks']);
+        $query = Device::withCount(['watchProgress', 'bookmarks', 'errors']);
 
         if ($search = $request->query('search')) {
             $query->where(function ($q) use ($search) {
                 $q->where('username', 'like', "%{$search}%")
                   ->orWhere('device_id', 'like', "%{$search}%")
                   ->orWhere('device_name', 'like', "%{$search}%")
+                  ->orWhere('country', 'like', "%{$search}%")
+                  ->orWhere('country_code', 'like', "%{$search}%")
                   ->orWhere('ip_address', 'like', "%{$search}%");
             });
         }
@@ -81,13 +108,26 @@ class DashboardController extends Controller
             $query->where('platform', $platform);
         }
 
+        if ($country = $request->query('country')) {
+            $query->where(function ($q) use ($country) {
+                $q->where('country_code', $country)
+                  ->orWhere('country', $country);
+            });
+        }
+
         if ($request->query('status') === 'online') {
             $query->where('last_active_at', '>=', $activeThreshold);
         }
 
         $devices = $query->orderByDesc('last_active_at')->paginate(15)->withQueryString();
 
-        return view('admin.devices', compact('devices', 'stats'));
+        $availableCountries = Device::select('country', 'country_code', DB::raw('count(*) as count'))
+            ->whereNotNull('country_code')
+            ->groupBy('country', 'country_code')
+            ->orderByDesc('count')
+            ->get();
+
+        return view('admin.devices', compact('devices', 'stats', 'availableCountries'));
     }
 
     // 3. Device Details Page
@@ -97,8 +137,9 @@ class DashboardController extends Controller
         $watchHistory = WatchProgress::where('device_id', $deviceId)->orderByDesc('last_watched_at')->get();
         $bookmarks = Bookmark::where('device_id', $deviceId)->orderByDesc('created_at')->get();
         $adEvents = AdEvent::where('device_id', $deviceId)->orderByDesc('created_at')->take(50)->get();
+        $errors = AppError::where('device_id', $deviceId)->orderByDesc('created_at')->take(50)->get();
 
-        return view('admin.device-details', compact('device', 'watchHistory', 'bookmarks', 'adEvents'));
+        return view('admin.device-details', compact('device', 'watchHistory', 'bookmarks', 'adEvents', 'errors'));
     }
 
     // 4. AdMob Monetization Page
@@ -193,7 +234,79 @@ class DashboardController extends Controller
         return view('admin.watch-history', compact('history', 'stats'));
     }
 
-    // 8. Remote App Settings Page
+    // 8. Client App Error Telemetry Logs Page
+    public function errors(Request $request): View
+    {
+        $query = AppError::with('device');
+
+        if ($search = $request->query('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('error_message', 'like', "%{$search}%")
+                  ->orWhere('screen', 'like', "%{$search}%")
+                  ->orWhere('device_id', 'like', "%{$search}%")
+                  ->orWhereHas('device', function ($dq) use ($search) {
+                      $dq->where('username', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        if ($severity = $request->query('severity')) {
+            $query->where('severity', $severity);
+        }
+
+        if ($screen = $request->query('screen')) {
+            $query->where('screen', $screen);
+        }
+
+        if ($request->query('status') === 'unresolved') {
+            $query->where('resolved', false);
+        } elseif ($request->query('status') === 'resolved') {
+            $query->where('resolved', true);
+        }
+
+        $errors = $query->orderByDesc('created_at')->paginate(20)->withQueryString();
+
+        $stats = [
+            'total' => AppError::count(),
+            'unresolved' => AppError::where('resolved', false)->count(),
+            'fatal' => AppError::where('severity', 'fatal')->count(),
+            'last24h' => AppError::where('created_at', '>=', now()->subHours(24))->count(),
+        ];
+
+        $screens = AppError::select('screen', DB::raw('count(*) as count'))
+            ->whereNotNull('screen')
+            ->groupBy('screen')
+            ->orderByDesc('count')
+            ->get();
+
+        return view('admin.errors', compact('errors', 'stats', 'screens'));
+    }
+
+    public function resolveError(string $id): RedirectResponse
+    {
+        $error = AppError::findOrFail($id);
+        $error->resolved = !$error->resolved;
+        $error->save();
+
+        $msg = $error->resolved ? 'Error marked as resolved.' : 'Error reopened.';
+        return back()->with('success', $msg);
+    }
+
+    public function deleteError(string $id): RedirectResponse
+    {
+        $error = AppError::findOrFail($id);
+        $error->delete();
+
+        return back()->with('success', 'Error log deleted.');
+    }
+
+    public function clearResolvedErrors(): RedirectResponse
+    {
+        $deleted = AppError::where('resolved', true)->delete();
+        return back()->with('success', "Cleared {$deleted} resolved error logs.");
+    }
+
+    // 9. Remote App Settings Page
     public function settings(): View
     {
         $settings = [
