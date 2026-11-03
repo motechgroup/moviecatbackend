@@ -37,7 +37,7 @@ class DashboardController extends Controller
                 'adImpressions' => AdEvent::where('event_type', 'impression')->count(),
                 'unresolvedErrors' => AppError::where('resolved', false)->count(),
                 'totalErrors' => AppError::count(),
-                'totalCountries' => Device::distinct()->count('country_code'),
+                'totalCountries' => (\Illuminate\Support\Facades\Schema::hasColumn('devices', 'country_code') ? Device::distinct()->count('country_code') : 0),
             ];
 
             $recentDevices = Device::orderByDesc('last_active_at')->take(6)->get();
@@ -89,7 +89,7 @@ class DashboardController extends Controller
                 'activeToday' => Device::where('last_active_at', '>=', $recentActiveThreshold)->count(),
                 'android' => Device::where('platform', 'android')->count(),
                 'ios' => Device::where('platform', 'ios')->count(),
-                'countriesCount' => Device::distinct()->count('country_code'),
+                'countriesCount' => (\Illuminate\Support\Facades\Schema::hasColumn('devices', 'country_code') ? Device::distinct()->count('country_code') : 0),
             ];
 
             $query = Device::withCount(['watchProgress', 'bookmarks']);

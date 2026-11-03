@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('app_version', 32)->nullable();
             $table->string('ip_address', 64)->nullable();
             $table->string('country', 64)->nullable();
+            $table->string('country_code', 8)->nullable()->index();
             $table->string('city', 64)->nullable();
             $table->timestamp('last_active_at')->useCurrent()->index();
             $table->unsignedBigInteger('total_watch_seconds')->default(0);
