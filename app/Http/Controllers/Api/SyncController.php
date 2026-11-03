@@ -98,8 +98,22 @@ class SyncController extends Controller
                 'last_watched_at' => now(),
             ]);
 
-            // Also increment device total watch seconds if device exists
-            Device::where('device_id', $deviceId)->increment('total_watch_seconds', min(15, (int)$validated['current_time']));
+            // Ensure device exists and update watch time
+            $device = Device::firstOrCreate(
+                ['device_id' => $deviceId],
+                [
+                    'username' => 'MovieCat #' . strtoupper(substr(md5($deviceId), 0, 4)),
+                    'platform' => $request->header('X-Platform', 'android'),
+                    'device_name' => 'Mobile Device',
+                    'ip_address' => $request->ip(),
+                    'country' => 'Kenya',
+                    'country_code' => 'KE',
+                    'last_active_at' => now(),
+                    'sessions_count' => 1,
+                ]
+            );
+            $device->increment('total_watch_seconds', min(15, (int)$validated['current_time']));
+            $device->update(['last_active_at' => now()]);
 
             return response()->json([
                 'success' => true,
