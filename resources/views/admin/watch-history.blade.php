@@ -74,9 +74,15 @@
                                     <div class="w-8 h-12 rounded-lg bg-white/5 flex items-center justify-center text-slate-500 text-xs flex-shrink-0">🎬</div>
                                 @endif
                                 <div>
-                                    <div class="text-white font-bold">{{ $item->title }}</div>
+                                    @php
+                                        $cleanTitle = $item->title;
+                                        if ($item->media_type === 'tv' && str_contains($cleanTitle, ' - Season')) {
+                                            $cleanTitle = explode(' - Season', $cleanTitle)[0];
+                                        }
+                                    @endphp
+                                    <div class="text-white font-bold">{{ $cleanTitle }}</div>
                                     @if($item->media_type === 'tv' && $item->season)
-                                        <div class="text-[10px] text-purple-300">Season {{ $item->season }}, Episode {{ $item->episode }}</div>
+                                        <div class="text-[10px] text-purple-300 font-mono">Season {{ $item->season }}, Episode {{ $item->episode }}</div>
                                     @endif
                                 </div>
                             </td>
