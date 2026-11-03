@@ -14,13 +14,13 @@
                         <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
                         Live on moviecat.djstube.com
                     </span>
-                    <span class="text-xs text-slate-400 font-mono">Zero-Account Mobile Fleet</span>
+                    <span class="text-xs text-slate-400 font-mono">Global Device Fleet</span>
                 </div>
                 <h2 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
                     Device Fleet & Telemetry Control Center
                 </h2>
                 <p class="text-slate-400 text-xs sm:text-sm">
-                    Users get automatic usernames upon app launch. Monitor real-time active devices, watch sessions, and toggle AdMob ads globally.
+                    Users get automatic usernames upon app launch. Track global user countries, playback sessions, app error telemetry, and toggle AdMob ads globally.
                 </p>
             </div>
 
@@ -52,13 +52,13 @@
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             </div>
             <div class="text-3xl font-extrabold text-white mt-2 group-hover:text-emerald-400 transition-colors">{{ $stats['activeNowDevices'] }}</div>
-            <div class="text-[11px] text-slate-400 mt-1">Online (last 15m) • {{ $stats['activeTodayDevices'] }} in 24h &rarr;</div>
+            <div class="text-[11px] text-slate-400 mt-1">Online now • {{ $stats['activeTodayDevices'] }} in 24h &rarr;</div>
         </a>
 
         <a href="{{ route('admin.devices.index') }}" class="glass-panel p-5 rounded-3xl hover:border-[#FF2E4C]/30 transition-all block group">
             <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Guest Fleet</div>
             <div class="text-3xl font-extrabold text-[#FF2E4C] mt-2">{{ $stats['totalDevices'] }}</div>
-            <div class="text-[11px] text-slate-400 mt-1">{{ $stats['androidDevices'] }} Android • {{ $stats['iosDevices'] }} iOS &rarr;</div>
+            <div class="text-[11px] text-slate-400 mt-1">{{ $stats['totalCountries'] }} countries • {{ $stats['androidDevices'] }} Android • {{ $stats['iosDevices'] }} iOS &rarr;</div>
         </a>
 
         <a href="{{ route('admin.sync.index') }}" class="glass-panel p-5 rounded-3xl hover:border-amber-500/30 transition-all block group">
@@ -67,11 +67,47 @@
             <div class="text-[11px] text-slate-400 mt-1">{{ $stats['completedWatches'] }} finished streams &rarr;</div>
         </a>
 
-        <a href="{{ route('admin.admob.index') }}" class="glass-panel p-5 rounded-3xl hover:border-purple-500/30 transition-all block group">
-            <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Ad Impressions</div>
-            <div class="text-3xl font-extrabold text-purple-400 mt-2">{{ $stats['adImpressions'] }}</div>
-            <div class="text-[11px] text-slate-400 mt-1">Status: {{ $adsEnabled ? 'Active' : 'Disabled' }} &rarr;</div>
+        <a href="{{ route('admin.errors.index') }}" class="glass-panel p-5 rounded-3xl hover:border-rose-500/30 transition-all block group">
+            <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
+                <span>App Error Telemetry</span>
+                @if($stats['unresolvedErrors'] > 0)
+                    <span class="w-2 h-2 rounded-full bg-rose-400 animate-pulse"></span>
+                @endif
+            </div>
+            <div class="text-3xl font-extrabold text-rose-400 mt-2">{{ $stats['unresolvedErrors'] }}</div>
+            <div class="text-[11px] text-slate-400 mt-1">Unresolved issues • {{ $stats['totalErrors'] }} total &rarr;</div>
         </a>
+    </div>
+
+    <!-- Country Distribution Breakdown -->
+    <div class="glass-panel p-6 sm:p-7 rounded-3xl space-y-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <span class="text-lg">🌍</span>
+                <span>Active User Countries Breakdown</span>
+            </h3>
+            <span class="text-xs text-slate-400 font-mono">{{ $stats['totalCountries'] }} Countries Detected</span>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+            @forelse($topCountries as $tc)
+                @php
+                    $code = strtoupper($tc->country_code ?: '');
+                    $flag = (strlen($code) === 2 && ctype_alpha($code))
+                        ? mb_chr(127397 + ord($code[0]), 'UTF-8') . mb_chr(127397 + ord($code[1]), 'UTF-8')
+                        : '🌐';
+                @endphp
+                <a href="{{ route('admin.devices.index', ['country' => $tc->country_code]) }}" class="p-3.5 rounded-2xl bg-white/[0.03] border border-white/5 hover:border-white/20 transition-all text-center block group">
+                    <div class="text-2xl">{{ $flag }}</div>
+                    <div class="text-xs font-bold text-white mt-1 group-hover:text-emerald-400 transition-colors truncate">{{ $tc->country ?: $tc->country_code }}</div>
+                    <div class="text-[11px] text-slate-400 font-mono mt-0.5">{{ $tc->count }} {{ Str::plural('device', $tc->count) }}</div>
+                </a>
+            @empty
+                <div class="col-span-6 py-4 text-center text-xs text-slate-400">
+                    No country telemetry captured yet.
+                </div>
+            @endforelse
+        </div>
     </div>
 
     <!-- Two Column: Recent Devices Preview & Recent Watch Stream -->
@@ -96,12 +132,13 @@
                             <div>
                                 <div class="flex items-center gap-2">
                                     <span class="font-bold text-white">{{ $device->display_name }}</span>
+                                    <span class="text-xs" title="{{ $device->country }}">{{ $device->country_flag }}</span>
                                     @if($device->isOnline())
                                         <span class="px-1.5 py-0.2 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">ONLINE</span>
                                     @endif
                                 </div>
                                 <div class="text-[10px] text-slate-400 font-mono mt-0.5">
-                                    {{ $device->device_name ?: 'Mobile' }} • {{ strtoupper($device->platform) }} {{ $device->os_version }} • {{ $device->sessions_count }} sessions
+                                    {{ $device->device_name ?: 'Mobile' }} • {{ $device->country ?: 'Global' }} • {{ strtoupper($device->platform) }}
                                 </div>
                             </div>
                         </div>
@@ -141,6 +178,7 @@
                                 <div class="font-bold text-white truncate">{{ $sync->title }}</div>
                                 <div class="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5">
                                     <span class="text-emerald-400 font-medium">{{ $sync->device->display_name ?? 'Guest User' }}</span>
+                                    <span>{{ $sync->device?->country_flag }}</span>
                                     <span>•</span>
                                     <span>{{ $sync->media_type === 'tv' ? "S{$sync->season}:E{$sync->episode}" : 'Movie' }}</span>
                                     <span>•</span>

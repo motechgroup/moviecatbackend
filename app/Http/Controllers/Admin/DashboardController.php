@@ -11,6 +11,7 @@ use App\Models\Device;
 use App\Models\WatchProgress;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Throwable;
@@ -36,14 +37,13 @@ class DashboardController extends Controller
                 'adImpressions' => AdEvent::where('event_type', 'impression')->count(),
                 'unresolvedErrors' => AppError::where('resolved', false)->count(),
                 'totalErrors' => AppError::count(),
-                'totalCountries' => Device::distinct('country_code')->count('country_code'),
+                'totalCountries' => Device::distinct()->count('country_code'),
             ];
 
             $recentDevices = Device::orderByDesc('last_active_at')->take(6)->get();
             $recentSyncs = WatchProgress::with('device')->orderByDesc('last_watched_at')->take(6)->get();
             $recentErrors = AppError::with('device')->orderByDesc('created_at')->take(5)->get();
 
-            // Top Countries Breakdown
             $topCountries = Device::select('country', 'country_code', DB::raw('count(*) as count'))
                 ->whereNotNull('country')
                 ->groupBy('country', 'country_code')
@@ -82,50 +82,59 @@ class DashboardController extends Controller
         $activeThreshold = now()->subMinutes(15);
         $recentActiveThreshold = now()->subHours(24);
 
-        $stats = [
-            'total' => Device::count(),
-            'activeNow' => Device::where('last_active_at', '>=', $activeThreshold)->count(),
-            'activeToday' => Device::where('last_active_at', '>=', $recentActiveThreshold)->count(),
-            'android' => Device::where('platform', 'android')->count(),
-            'ios' => Device::where('platform', 'ios')->count(),
-            'countriesCount' => Device::distinct('country_code')->count('country_code'),
-        ];
+        try {
+            $stats = [
+                'total' => Device::count(),
+                'activeNow' => Device::where('last_active_at', '>=', $activeThreshold)->count(),
+                'activeToday' => Device::where('last_active_at', '>=', $recentActiveThreshold)->count(),
+                'android' => Device::where('platform', 'android')->count(),
+                'ios' => Device::where('platform', 'ios')->count(),
+                'countriesCount' => Device::distinct()->count('country_code'),
+            ];
 
-        $query = Device::withCount(['watchProgress', 'bookmarks', 'errors']);
+            $query = Device::withCount(['watchProgress', 'bookmarks']);
 
-        if ($search = $request->query('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('username', 'like', "%{$search}%")
-                  ->orWhere('device_id', 'like', "%{$search}%")
-                  ->orWhere('device_name', 'like', "%{$search}%")
-                  ->orWhere('country', 'like', "%{$search}%")
-                  ->orWhere('country_code', 'like', "%{$search}%")
-                  ->orWhere('ip_address', 'like', "%{$search}%");
-            });
+            if ($search = $request->query('search')) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('username', 'like', "%{$search}%")
+                      ->orWhere('device_id', 'like', "%{$search}%")
+                      ->orWhere('device_name', 'like', "%{$search}%")
+                      ->orWhere('country', 'like', "%{$search}%")
+                      ->orWhere('country_code', 'like', "%{$search}%")
+                      ->orWhere('ip_address', 'like', "%{$search}%");
+                });
+            }
+
+            if ($platform = $request->query('platform')) {
+                $query->where('platform', $platform);
+            }
+
+            if ($country = $request->query('country')) {
+                $query->where(function ($q) use ($country) {
+                    $q->where('country_code', $country)
+                      ->orWhere('country', $country);
+                });
+            }
+
+            if ($request->query('status') === 'online') {
+                $query->where('last_active_at', '>=', $activeThreshold);
+            }
+
+            $devices = $query->orderByDesc('last_active_at')->paginate(15)->withQueryString();
+
+            $availableCountries = Device::select('country', 'country_code', DB::raw('count(*) as count'))
+                ->whereNotNull('country_code')
+                ->groupBy('country', 'country_code')
+                ->orderByDesc('count')
+                ->get();
+        } catch (Throwable $e) {
+            $stats = [
+                'total' => 0, 'activeNow' => 0, 'activeToday' => 0,
+                'android' => 0, 'ios' => 0, 'countriesCount' => 0,
+            ];
+            $devices = new LengthAwarePaginator([], 0, 15);
+            $availableCountries = collect();
         }
-
-        if ($platform = $request->query('platform')) {
-            $query->where('platform', $platform);
-        }
-
-        if ($country = $request->query('country')) {
-            $query->where(function ($q) use ($country) {
-                $q->where('country_code', $country)
-                  ->orWhere('country', $country);
-            });
-        }
-
-        if ($request->query('status') === 'online') {
-            $query->where('last_active_at', '>=', $activeThreshold);
-        }
-
-        $devices = $query->orderByDesc('last_active_at')->paginate(15)->withQueryString();
-
-        $availableCountries = Device::select('country', 'country_code', DB::raw('count(*) as count'))
-            ->whereNotNull('country_code')
-            ->groupBy('country', 'country_code')
-            ->orderByDesc('count')
-            ->get();
 
         return view('admin.devices', compact('devices', 'stats', 'availableCountries'));
     }
@@ -133,11 +142,15 @@ class DashboardController extends Controller
     // 3. Device Details Page
     public function showDevice(string $deviceId): View
     {
-        $device = Device::where('device_id', $deviceId)->firstOrFail();
-        $watchHistory = WatchProgress::where('device_id', $deviceId)->orderByDesc('last_watched_at')->get();
-        $bookmarks = Bookmark::where('device_id', $deviceId)->orderByDesc('created_at')->get();
-        $adEvents = AdEvent::where('device_id', $deviceId)->orderByDesc('created_at')->take(50)->get();
-        $errors = AppError::where('device_id', $deviceId)->orderByDesc('created_at')->take(50)->get();
+        try {
+            $device = Device::where('device_id', $deviceId)->firstOrFail();
+            $watchHistory = WatchProgress::where('device_id', $deviceId)->orderByDesc('last_watched_at')->get();
+            $bookmarks = Bookmark::where('device_id', $deviceId)->orderByDesc('created_at')->get();
+            $adEvents = AdEvent::where('device_id', $deviceId)->orderByDesc('created_at')->take(50)->get();
+            $errors = AppError::where('device_id', $deviceId)->orderByDesc('created_at')->take(50)->get();
+        } catch (Throwable) {
+            abort(404, 'Device not found or tables not migrated.');
+        }
 
         return view('admin.device-details', compact('device', 'watchHistory', 'bookmarks', 'adEvents', 'errors'));
     }
@@ -159,11 +172,15 @@ class DashboardController extends Controller
             'banner_interval' => AppSetting::get('banner_interval', 30),
         ];
 
-        $adStats = [
-            'impressions' => AdEvent::where('event_type', 'impression')->count(),
-            'clicks' => AdEvent::where('event_type', 'click')->count(),
-            'failed' => AdEvent::where('event_type', 'failed')->count(),
-        ];
+        try {
+            $adStats = [
+                'impressions' => AdEvent::where('event_type', 'impression')->count(),
+                'clicks' => AdEvent::where('event_type', 'click')->count(),
+                'failed' => AdEvent::where('event_type', 'failed')->count(),
+            ];
+        } catch (Throwable) {
+            $adStats = ['impressions' => 0, 'clicks' => 0, 'failed' => 0];
+        }
 
         return view('admin.admob', compact('adsEnabled', 'settings', 'adStats'));
     }
@@ -206,30 +223,35 @@ class DashboardController extends Controller
     // 7. Watch History Telemetry Page
     public function watchHistory(Request $request): View
     {
-        $query = WatchProgress::with('device');
+        try {
+            $query = WatchProgress::with('device');
 
-        if ($search = $request->query('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('device_id', 'like', "%{$search}%")
-                  ->orWhereHas('device', function ($dq) use ($search) {
-                      $dq->where('username', 'like', "%{$search}%");
-                  });
-            });
+            if ($search = $request->query('search')) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('title', 'like', "%{$search}%")
+                      ->orWhere('device_id', 'like', "%{$search}%")
+                      ->orWhereHas('device', function ($dq) use ($search) {
+                          $dq->where('username', 'like', "%{$search}%");
+                      });
+                });
+            }
+
+            if ($type = $request->query('type')) {
+                $query->where('media_type', $type);
+            }
+
+            $history = $query->orderByDesc('last_watched_at')->paginate(20)->withQueryString();
+
+            $stats = [
+                'totalCheckpoints' => WatchProgress::count(),
+                'completed' => WatchProgress::where('completed', true)->count(),
+                'movies' => WatchProgress::where('media_type', 'movie')->count(),
+                'series' => WatchProgress::where('media_type', 'tv')->count(),
+            ];
+        } catch (Throwable) {
+            $history = new LengthAwarePaginator([], 0, 20);
+            $stats = ['totalCheckpoints' => 0, 'completed' => 0, 'movies' => 0, 'series' => 0];
         }
-
-        if ($type = $request->query('type')) {
-            $query->where('media_type', $type);
-        }
-
-        $history = $query->orderByDesc('last_watched_at')->paginate(20)->withQueryString();
-
-        $stats = [
-            'totalCheckpoints' => WatchProgress::count(),
-            'completed' => WatchProgress::where('completed', true)->count(),
-            'movies' => WatchProgress::where('media_type', 'movie')->count(),
-            'series' => WatchProgress::where('media_type', 'tv')->count(),
-        ];
 
         return view('admin.watch-history', compact('history', 'stats'));
     }
@@ -237,47 +259,53 @@ class DashboardController extends Controller
     // 8. Client App Error Telemetry Logs Page
     public function errors(Request $request): View
     {
-        $query = AppError::with('device');
+        try {
+            $query = AppError::with('device');
 
-        if ($search = $request->query('search')) {
-            $query->where(function ($q) use ($search) {
-                $q->where('error_message', 'like', "%{$search}%")
-                  ->orWhere('screen', 'like', "%{$search}%")
-                  ->orWhere('device_id', 'like', "%{$search}%")
-                  ->orWhereHas('device', function ($dq) use ($search) {
-                      $dq->where('username', 'like', "%{$search}%");
-                  });
-            });
+            if ($search = $request->query('search')) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('error_message', 'like', "%{$search}%")
+                      ->orWhere('screen', 'like', "%{$search}%")
+                      ->orWhere('device_id', 'like', "%{$search}%")
+                      ->orWhereHas('device', function ($dq) use ($search) {
+                          $dq->where('username', 'like', "%{$search}%");
+                      });
+                });
+            }
+
+            if ($severity = $request->query('severity')) {
+                $query->where('severity', $severity);
+            }
+
+            if ($screen = $request->query('screen')) {
+                $query->where('screen', $screen);
+            }
+
+            if ($request->query('status') === 'unresolved') {
+                $query->where('resolved', false);
+            } elseif ($request->query('status') === 'resolved') {
+                $query->where('resolved', true);
+            }
+
+            $errors = $query->orderByDesc('created_at')->paginate(20)->withQueryString();
+
+            $stats = [
+                'total' => AppError::count(),
+                'unresolved' => AppError::where('resolved', false)->count(),
+                'fatal' => AppError::where('severity', 'fatal')->count(),
+                'last24h' => AppError::where('created_at', '>=', now()->subHours(24))->count(),
+            ];
+
+            $screens = AppError::select('screen', DB::raw('count(*) as count'))
+                ->whereNotNull('screen')
+                ->groupBy('screen')
+                ->orderByDesc('count')
+                ->get();
+        } catch (Throwable) {
+            $errors = new LengthAwarePaginator([], 0, 20);
+            $stats = ['total' => 0, 'unresolved' => 0, 'fatal' => 0, 'last24h' => 0];
+            $screens = collect();
         }
-
-        if ($severity = $request->query('severity')) {
-            $query->where('severity', $severity);
-        }
-
-        if ($screen = $request->query('screen')) {
-            $query->where('screen', $screen);
-        }
-
-        if ($request->query('status') === 'unresolved') {
-            $query->where('resolved', false);
-        } elseif ($request->query('status') === 'resolved') {
-            $query->where('resolved', true);
-        }
-
-        $errors = $query->orderByDesc('created_at')->paginate(20)->withQueryString();
-
-        $stats = [
-            'total' => AppError::count(),
-            'unresolved' => AppError::where('resolved', false)->count(),
-            'fatal' => AppError::where('severity', 'fatal')->count(),
-            'last24h' => AppError::where('created_at', '>=', now()->subHours(24))->count(),
-        ];
-
-        $screens = AppError::select('screen', DB::raw('count(*) as count'))
-            ->whereNotNull('screen')
-            ->groupBy('screen')
-            ->orderByDesc('count')
-            ->get();
 
         return view('admin.errors', compact('errors', 'stats', 'screens'));
     }

@@ -18,8 +18,9 @@
                     {{ strtoupper(substr($device->display_name, 0, 2)) }}
                 </div>
                 <div>
-                    <div class="flex items-center gap-2.5">
+                    <div class="flex items-center gap-2.5 flex-wrap">
                         <h1 class="text-2xl font-black text-white tracking-tight">{{ $device->display_name }}</h1>
+                        <span class="text-xl" title="{{ $device->country }}">{{ $device->country_flag }}</span>
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Auto Guest Account</span>
                         @if($device->isOnline())
                             <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
@@ -42,8 +43,12 @@
                     <div class="text-lg font-bold text-white mt-0.5">{{ $device->sessions_count }}</div>
                 </div>
                 <div class="p-3.5 rounded-2xl bg-white/5 border border-white/5 text-center min-w-[90px]">
-                    <div class="text-[10px] uppercase text-slate-400 font-semibold">Watch Telemetry</div>
+                    <div class="text-[10px] uppercase text-slate-400 font-semibold">Watched Titles</div>
                     <div class="text-lg font-bold text-[#FF2E4C] mt-0.5">{{ $watchHistory->count() }}</div>
+                </div>
+                <div class="p-3.5 rounded-2xl bg-white/5 border border-white/5 text-center min-w-[90px]">
+                    <div class="text-[10px] uppercase text-slate-400 font-semibold">Reported Errors</div>
+                    <div class="text-lg font-bold text-rose-400 mt-0.5">{{ $errors->count() }}</div>
                 </div>
                 <div class="p-3.5 rounded-2xl bg-white/5 border border-white/5 text-center min-w-[90px]">
                     <div class="text-[10px] uppercase text-slate-400 font-semibold">Watch Time</div>
@@ -54,24 +59,27 @@
 
         <div class="grid grid-cols-2 sm:grid-cols-5 gap-4 pt-6 border-t border-white/5 text-xs">
             <div>
-                <span class="text-slate-500 block text-[11px]">Platform</span>
-                <span class="font-bold text-slate-200 uppercase">{{ $device->platform }}</span>
+                <span class="text-slate-500 block text-[11px]">Country</span>
+                <span class="font-bold text-white flex items-center gap-1.5 mt-0.5">
+                    <span>{{ $device->country_flag }}</span>
+                    <span>{{ $device->country ?: ($device->country_code ?: 'Unknown') }}</span>
+                </span>
             </div>
             <div>
-                <span class="text-slate-500 block text-[11px]">OS Version</span>
-                <span class="font-bold text-slate-200">{{ $device->os_version ?: '1.0' }}</span>
+                <span class="text-slate-500 block text-[11px]">Platform & OS</span>
+                <span class="font-bold text-slate-200 uppercase mt-0.5 block">{{ $device->platform }} {{ $device->os_version }}</span>
             </div>
             <div>
                 <span class="text-slate-500 block text-[11px]">App Version</span>
-                <span class="font-bold text-slate-200">{{ $device->app_version ?: '1.0.0' }}</span>
+                <span class="font-bold text-slate-200 mt-0.5 block">{{ $device->app_version ?: '1.0.0' }}</span>
             </div>
             <div>
                 <span class="text-slate-500 block text-[11px]">IP Address</span>
-                <span class="font-bold font-mono text-slate-200">{{ $device->ip_address ?: '127.0.0.1' }}</span>
+                <span class="font-bold font-mono text-slate-200 mt-0.5 block">{{ $device->ip_address ?: '127.0.0.1' }}</span>
             </div>
             <div>
-                <span class="text-slate-500 block text-[11px]">Last Active</span>
-                <span class="font-bold text-slate-200">{{ $device->last_active_at ? $device->last_active_at->diffForHumans() : 'Never' }}</span>
+                <span class="text-slate-500 block text-[11px]">Last Seen</span>
+                <span class="font-bold text-slate-200 mt-0.5 block">{{ $device->last_active_at ? $device->last_active_at->diffForHumans() : 'Never' }}</span>
             </div>
         </div>
     </div>
@@ -84,9 +92,9 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                 </svg>
-                Detailed Watch History & Progress ({{ $watchHistory->count() }})
+                Device Watch History & Progress ({{ $watchHistory->count() }})
             </h2>
-            <span class="text-xs text-slate-400">Synced directly from mobile client</span>
+            <span class="text-xs text-slate-400">Playback telemetry sync</span>
         </div>
 
         <div class="overflow-x-auto">
@@ -163,5 +171,39 @@
             </table>
         </div>
     </div>
+
+    <!-- Error Logs Reported by this Device -->
+    @if($errors->count() > 0)
+        <div class="glass-panel p-6 sm:p-8 rounded-3xl space-y-4 border border-rose-500/20">
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                <svg class="w-5 h-5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                Error Telemetry Reported by this Device ({{ $errors->count() }})
+            </h2>
+
+            <div class="space-y-3">
+                @foreach($errors as $err)
+                    <div class="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 space-y-2">
+                        <div class="flex items-center justify-between text-xs">
+                            <div class="flex items-center gap-2">
+                                <span class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase {{ $err->severity === 'fatal' ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400' }}">
+                                    {{ $err->severity }}
+                                </span>
+                                @if($err->screen)
+                                    <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 text-slate-300">
+                                        {{ $err->screen }}
+                                    </span>
+                                @endif
+                                <span class="font-bold text-white">{{ $err->error_message }}</span>
+                            </div>
+                            <span class="text-[10px] text-slate-500 font-mono">{{ $err->created_at ? $err->created_at->diffForHumans() : 'N/A' }}</span>
+                        </div>
+                        @if($err->stack_trace)
+                            <pre class="p-2.5 rounded-xl bg-black/40 text-slate-300 text-[10px] font-mono whitespace-pre-wrap max-h-32 overflow-y-auto">{{ $err->stack_trace }}</pre>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
 </div>
 @endsection
