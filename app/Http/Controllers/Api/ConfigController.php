@@ -48,6 +48,7 @@ class ConfigController extends Controller
                 'type' => 'info',
             ]),
             'features' => [
+                'downloads' => (bool)AppSetting::get('feature_downloads_enabled', true),
                 'bulkDownload' => AppSetting::get('feature_bulk_download', true),
                 'similarSeries' => AppSetting::get('feature_similar_series', true),
                 'cloudSync' => AppSetting::get('feature_cloud_sync', true),

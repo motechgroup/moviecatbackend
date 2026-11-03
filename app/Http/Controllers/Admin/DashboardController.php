@@ -313,10 +313,25 @@ class DashboardController extends Controller
             $topSeries = collect();
         }
 
-        return view('admin.downloads', compact('downloads', 'stats', 'topMovies', 'topSeries'));
+        $downloadsEnabled = (bool)AppSetting::get('feature_downloads_enabled', true);
+        return view('admin.downloads', compact('downloads', 'stats', 'topMovies', 'topSeries', 'downloadsEnabled'));
     }
 
     // 5. AdMob Monetization Page
+    
+    public function toggleDownloads(Request $request): RedirectResponse
+    {
+        $current = (bool)AppSetting::get('feature_downloads_enabled', true);
+        $newVal = !$current;
+        AppSetting::set('feature_downloads_enabled', $newVal, 'features');
+
+        $statusMsg = $newVal
+            ? 'Offline Downloads ENABLED. Mobile users can download movies and TV episodes.'
+            : 'Offline Downloads DISABLED. Download actions and buttons are silenced across the mobile app in real-time.';
+
+        return back()->with('success', $statusMsg);
+    }
+
     public function admob(): View
     {
         $adsEnabled = (bool)AppSetting::get('ads_enabled', true);

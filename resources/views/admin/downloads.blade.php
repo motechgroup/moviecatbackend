@@ -27,6 +27,34 @@
         </div>
     </div>
 
+    
+    <!-- MASTER DOWNLOAD SWITCH BANNER -->
+    <div class="p-6 rounded-3xl glass-panel relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-4 border {{ $downloadsEnabled ? 'border-emerald-500/30 bg-emerald-950/10' : 'border-rose-500/30 bg-rose-950/10' }}">
+        <div class="space-y-1">
+            <div class="flex items-center gap-2.5">
+                <span class="w-3 h-3 rounded-full {{ $downloadsEnabled ? 'bg-emerald-400 animate-pulse' : 'bg-rose-500' }}"></span>
+                <h2 class="text-lg font-bold text-white">Downloads Master Switch: {{ $downloadsEnabled ? 'ENABLED' : 'DISABLED' }}</h2>
+            </div>
+            <p class="text-xs text-slate-400 max-w-xl">
+                When turned <strong class="text-white">{{ $downloadsEnabled ? 'OFF' : 'ON' }}</strong>, mobile clients immediately receive <code>features.downloads = {{ $downloadsEnabled ? 'false' : 'true' }}</code> via remote config. Download buttons and vault actions across movies and series are {{ $downloadsEnabled ? 'silenced' : 'restored' }} in real-time.
+            </p>
+        </div>
+        <form action="{{ route('admin.downloads.toggle') }}" method="POST">
+            @csrf
+            @if($downloadsEnabled)
+                <button type="submit" class="px-5 py-2.5 rounded-2xl bg-rose-500/15 text-rose-400 hover:bg-rose-500/25 border border-rose-500/30 font-bold text-xs transition-all flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+                    Disable Downloads
+                </button>
+            @else
+                <button type="submit" class="px-5 py-2.5 rounded-2xl bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/30 font-bold text-xs transition-all flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    Enable Downloads
+                </button>
+            @endif
+        </form>
+    </div>
+
     <!-- METRIC CARDS -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <!-- Total Downloads -->

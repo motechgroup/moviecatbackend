@@ -65,6 +65,10 @@
                 Client Feature Flags
             </h2>
             <div class="space-y-3 text-xs">
+                <label class="flex items-center gap-2.5 text-slate-200 cursor-pointer p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
+                    <input type="checkbox" name="feature_downloads_enabled" value="1" {{ $settings['feature_downloads_enabled'] ? 'checked' : '' }} class="w-4 h-4 accent-[#FF2E4C] rounded">
+                    <span class="font-bold text-white">Enable Offline Downloads (Allows users to download movies and series into device vault)</span>
+                </label>
                 <label class="flex items-center gap-2.5 text-slate-300 cursor-pointer">
                     <input type="checkbox" name="feature_bulk_download" value="1" {{ $settings['feature_bulk_download'] ? 'checked' : '' }} class="w-4 h-4 accent-[#FF2E4C] rounded">
                     <span>Bulk Downloads for TV series & movies</span>

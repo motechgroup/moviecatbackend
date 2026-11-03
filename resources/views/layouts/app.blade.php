@@ -196,6 +196,23 @@
                 </div>
 
                 <div class="flex items-center gap-3">
+                    
+                    <!-- Quick Downloads master switch in header -->
+                    <form action="{{ route('admin.downloads.toggle') }}" method="POST" class="inline">
+                        @csrf
+                        @if(\App\Models\AppSetting::get('feature_downloads_enabled', true))
+                            <button type="submit" title="Click to disable all mobile downloads" class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all">
+                                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                                <span>Downloads Active</span>
+                            </button>
+                        @else
+                            <button type="submit" title="Click to enable mobile downloads" class="flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30 hover:bg-rose-500/25 transition-all">
+                                <span class="w-2 h-2 rounded-full bg-rose-400"></span>
+                                <span>Downloads Disabled</span>
+                            </button>
+                        @endif
+                    </form>
+
                     <!-- Quick AdMob status pill in header -->
                     <form action="{{ route('admin.admob.toggle') }}" method="POST" class="inline">
                         @csrf

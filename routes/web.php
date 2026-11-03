@@ -36,6 +36,7 @@ Route::prefix('admin')->group(function () {
 
         // Downloads & Offline Telemetry
         Route::get('/downloads', [DashboardController::class, 'downloads'])->name('admin.downloads.index');
+        Route::post('/downloads/toggle', [DashboardController::class, 'toggleDownloads'])->name('admin.downloads.toggle');
         Route::post('/wipe-mock-data', [DashboardController::class, 'wipeMockData'])->name('admin.wipe-mock');
 
         // Client App Error Telemetry Logs
