@@ -123,6 +123,7 @@ class DeviceController extends Controller
         }
 
         $adsEnabled = (bool)AppSetting::get('ads_enabled', true);
+        $downloadsEnabled = (bool)AppSetting::get('feature_downloads_enabled', true);
 
         return response()->json([
             'success' => true,
@@ -135,6 +136,9 @@ class DeviceController extends Controller
             ],
             'ads' => [
                 'enabled' => $adsEnabled,
+            ],
+            'features' => [
+                'downloads' => $downloadsEnabled,
             ],
         ]);
     }
