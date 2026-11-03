@@ -54,4 +54,5 @@ Route::prefix('v1')->group(function () {
     // Ad & Telemetry Analytics
     Route::post('/telemetry/ad-event', [TelemetryController::class, 'recordAdEvent']);
     Route::post('/telemetry/error', [TelemetryController::class, 'recordAppError']);
+    Route::post('/telemetry/download', [TelemetryController::class, 'recordDownload']);
 });

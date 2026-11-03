@@ -34,6 +34,10 @@ Route::prefix('admin')->group(function () {
         // Watch Progress & Sync Telemetry
         Route::get('/watch-history', [DashboardController::class, 'watchHistory'])->name('admin.sync.index');
 
+        // Downloads & Offline Telemetry
+        Route::get('/downloads', [DashboardController::class, 'downloads'])->name('admin.downloads.index');
+        Route::post('/wipe-mock-data', [DashboardController::class, 'wipeMockData'])->name('admin.wipe-mock');
+
         // Client App Error Telemetry Logs
         Route::get('/errors', [DashboardController::class, 'errors'])->name('admin.errors.index');
         Route::post('/errors/{id}/resolve', [DashboardController::class, 'resolveError'])->name('admin.errors.resolve');

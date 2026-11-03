@@ -101,4 +101,22 @@ class Device extends Model
         $remMin = $minutes % 60;
         return "{$hours}h {$remMin}m";
     }
+
+    public function downloads(): HasMany
+    {
+        return $this->hasMany(DownloadEvent::class, 'device_id', 'device_id');
+    }
+
+    public function getFormattedWatchTimeAttribute(): string
+    {
+        $seconds = (int)$this->total_watch_seconds;
+        if ($seconds <= 0) return '0m';
+        $hours = floor($seconds / 3600);
+        $mins = floor(($seconds % 3600) / 60);
+        if ($hours > 0) {
+            return "{$hours}h {$mins}m";
+        }
+        return "{$mins}m";
+    }
+
 }

@@ -8,25 +8,58 @@ use App\Models\AppError;
 use App\Models\AppSetting;
 use App\Models\Bookmark;
 use App\Models\Device;
+use App\Models\DownloadEvent;
 use App\Models\WatchProgress;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\View\View;
 use Throwable;
 
 class DashboardController extends Controller
 {
-    // 1. Overview Dashboard
+    private function formatSeconds(int $seconds): string
+    {
+        if ($seconds <= 0) return '0 min';
+        $hours = floor($seconds / 3600);
+        $minutes = floor(($seconds % 3600) / 60);
+        if ($hours > 0) {
+            return "{$hours}h {$minutes}m";
+        }
+        return "{$minutes}m";
+    }
+
+    private function formatBytes(int $bytes): string
+    {
+        if ($bytes <= 0) return '0 MB';
+        if ($bytes >= 1073741824) {
+            return number_format($bytes / 1073741824, 2) . ' GB';
+        }
+        if ($bytes >= 1048576) {
+            return number_format($bytes / 1048576, 1) . ' MB';
+        }
+        return number_format($bytes / 1024, 0) . ' KB';
+    }
+
+    // 1. Overview Dashboard with Analytics
     public function index(): View
     {
         try {
             $activeThreshold = now()->subMinutes(15);
             $recentActiveThreshold = now()->subHours(24);
 
+            $totalWatchSeconds = (int)WatchProgress::sum('current_time');
+            $totalDownloadBytes = Schema::hasTable('download_events')
+                ? (int)DownloadEvent::where('status', 'completed')->sum('file_size_bytes')
+                : 0;
+            $totalDownloads = Schema::hasTable('download_events') ? DownloadEvent::count() : 0;
+
+            $totalDevicesCount = Device::count();
+
             $stats = [
-                'totalDevices' => Device::count(),
+                'totalDevices' => $totalDevicesCount,
                 'activeNowDevices' => Device::where('last_active_at', '>=', $activeThreshold)->count(),
                 'activeTodayDevices' => Device::where('last_active_at', '>=', $recentActiveThreshold)->count(),
                 'androidDevices' => Device::where('platform', 'android')->count(),
@@ -37,19 +70,65 @@ class DashboardController extends Controller
                 'adImpressions' => AdEvent::where('event_type', 'impression')->count(),
                 'unresolvedErrors' => AppError::where('resolved', false)->count(),
                 'totalErrors' => AppError::count(),
-                'totalCountries' => (\Illuminate\Support\Facades\Schema::hasColumn('devices', 'country_code') ? Device::distinct()->count('country_code') : 0),
+                'totalCountries' => (Schema::hasColumn('devices', 'country_code') ? Device::distinct()->count('country_code') : 0),
+                'totalWatchTime' => $this->formatSeconds($totalWatchSeconds),
+                'totalDownloads' => $totalDownloads,
+                'totalDataTransferred' => $this->formatBytes($totalDownloadBytes),
             ];
 
             $recentDevices = Device::orderByDesc('last_active_at')->take(6)->get();
             $recentSyncs = WatchProgress::with('device')->orderByDesc('last_watched_at')->take(6)->get();
             $recentErrors = AppError::with('device')->orderByDesc('created_at')->take(5)->get();
 
-            $topCountries = Device::select('country', 'country_code', DB::raw('count(*) as count'))
+            // Country Analytics with Percentage Breakdown & Watch time
+            $topCountries = Device::select('country', 'country_code', DB::raw('count(*) as count'), DB::raw('sum(total_watch_seconds) as watch_seconds'))
                 ->whereNotNull('country')
                 ->groupBy('country', 'country_code')
                 ->orderByDesc('count')
                 ->take(6)
-                ->get();
+                ->get()
+                ->map(function ($c) use ($totalDevicesCount) {
+                    $c->percentage = $totalDevicesCount > 0 ? round(($c->count / $totalDevicesCount) * 100, 1) : 0;
+                    $c->formatted_watch_time = $this->formatSeconds((int)$c->watch_seconds);
+                    return $c;
+                });
+
+            // Most Watched Movies & TV Shows
+            $mostWatchedMovies = WatchProgress::select('title', 'poster', 'media_id', DB::raw('count(*) as count'), DB::raw('sum(current_time) as total_seconds'))
+                ->where('media_type', 'movie')
+                ->groupBy('title', 'poster', 'media_id')
+                ->orderByDesc('count')
+                ->take(5)
+                ->get()
+                ->map(function ($item) {
+                    $item->formatted_time = $this->formatSeconds((int)$item->total_seconds);
+                    return $item;
+                });
+
+            $mostWatchedSeries = WatchProgress::select('title', 'poster', 'media_id', DB::raw('count(*) as count'), DB::raw('sum(current_time) as total_seconds'))
+                ->where('media_type', 'tv')
+                ->groupBy('title', 'poster', 'media_id')
+                ->orderByDesc('count')
+                ->take(5)
+                ->get()
+                ->map(function ($item) {
+                    $item->formatted_time = $this->formatSeconds((int)$item->total_seconds);
+                    return $item;
+                });
+
+            // Most Downloaded Media
+            $mostDownloaded = Schema::hasTable('download_events')
+                ? DownloadEvent::select('title', 'poster', 'media_id', 'media_type', DB::raw('count(*) as count'), DB::raw('sum(file_size_bytes) as total_bytes'))
+                    ->where('status', 'completed')
+                    ->groupBy('title', 'poster', 'media_id', 'media_type')
+                    ->orderByDesc('count')
+                    ->take(5)
+                    ->get()
+                    ->map(function ($item) {
+                        $item->formatted_size = $this->formatBytes((int)$item->total_bytes);
+                        return $item;
+                    })
+                : collect();
 
         } catch (Throwable) {
             $stats = [
@@ -57,11 +136,15 @@ class DashboardController extends Controller
                 'androidDevices' => 0, 'iosDevices' => 0, 'totalProgress' => 0,
                 'completedWatches' => 0, 'totalBookmarks' => 0, 'adImpressions' => 0,
                 'unresolvedErrors' => 0, 'totalErrors' => 0, 'totalCountries' => 0,
+                'totalWatchTime' => '0 min', 'totalDownloads' => 0, 'totalDataTransferred' => '0 MB',
             ];
             $recentDevices = collect();
             $recentSyncs = collect();
             $recentErrors = collect();
             $topCountries = collect();
+            $mostWatchedMovies = collect();
+            $mostWatchedSeries = collect();
+            $mostDownloaded = collect();
         }
 
         $adsEnabled = (bool)AppSetting::get('ads_enabled', true);
@@ -72,6 +155,9 @@ class DashboardController extends Controller
             'recentSyncs',
             'recentErrors',
             'topCountries',
+            'mostWatchedMovies',
+            'mostWatchedSeries',
+            'mostDownloaded',
             'adsEnabled'
         ));
     }
@@ -89,7 +175,7 @@ class DashboardController extends Controller
                 'activeToday' => Device::where('last_active_at', '>=', $recentActiveThreshold)->count(),
                 'android' => Device::where('platform', 'android')->count(),
                 'ios' => Device::where('platform', 'ios')->count(),
-                'countriesCount' => (\Illuminate\Support\Facades\Schema::hasColumn('devices', 'country_code') ? Device::distinct()->count('country_code') : 0),
+                'countriesCount' => (Schema::hasColumn('devices', 'country_code') ? Device::distinct()->count('country_code') : 0),
             ];
 
             $query = Device::withCount(['watchProgress', 'bookmarks']);
@@ -127,7 +213,7 @@ class DashboardController extends Controller
                 ->groupBy('country', 'country_code')
                 ->orderByDesc('count')
                 ->get();
-        } catch (Throwable $e) {
+        } catch (Throwable) {
             $stats = [
                 'total' => 0, 'activeNow' => 0, 'activeToday' => 0,
                 'android' => 0, 'ios' => 0, 'countriesCount' => 0,
@@ -148,14 +234,89 @@ class DashboardController extends Controller
             $bookmarks = Bookmark::where('device_id', $deviceId)->orderByDesc('created_at')->get();
             $adEvents = AdEvent::where('device_id', $deviceId)->orderByDesc('created_at')->take(50)->get();
             $errors = AppError::where('device_id', $deviceId)->orderByDesc('created_at')->take(50)->get();
+            $downloads = Schema::hasTable('download_events')
+                ? DownloadEvent::where('device_id', $deviceId)->orderByDesc('created_at')->take(50)->get()
+                : collect();
         } catch (Throwable) {
-            abort(404, 'Device not found or tables not migrated.');
+            abort(404, 'Device not found.');
         }
 
-        return view('admin.device-details', compact('device', 'watchHistory', 'bookmarks', 'adEvents', 'errors'));
+        return view('admin.device-details', compact('device', 'watchHistory', 'bookmarks', 'adEvents', 'errors', 'downloads'));
     }
 
-    // 4. AdMob Monetization Page
+    // 4. Downloads & Offline Analytics Page
+    public function downloads(Request $request): View
+    {
+        try {
+            $query = DownloadEvent::with('device');
+
+            if ($search = $request->query('search')) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('title', 'like', "%{$search}%")
+                      ->orWhere('device_id', 'like', "%{$search}%")
+                      ->orWhereHas('device', function ($dq) use ($search) {
+                          $dq->where('username', 'like', "%{$search}%");
+                      });
+                });
+            }
+
+            if ($type = $request->query('type')) {
+                $query->where('media_type', $type);
+            }
+
+            if ($status = $request->query('status')) {
+                $query->where('status', $status);
+            }
+
+            $downloads = $query->orderByDesc('created_at')->paginate(20)->withQueryString();
+
+            $totalBytes = (int)DownloadEvent::where('status', 'completed')->sum('file_size_bytes');
+
+            $stats = [
+                'total' => DownloadEvent::count(),
+                'completed' => DownloadEvent::where('status', 'completed')->count(),
+                'offlineWatched' => DownloadEvent::where('status', 'offline_watched')->count(),
+                'totalData' => $this->formatBytes($totalBytes),
+                'uniqueDevices' => DownloadEvent::distinct('device_id')->count('device_id'),
+            ];
+
+            // Top Downloaded Movies
+            $topMovies = DownloadEvent::select('title', 'poster', 'media_id', DB::raw('count(*) as count'), DB::raw('sum(file_size_bytes) as bytes'))
+                ->where('media_type', 'movie')
+                ->where('status', 'completed')
+                ->groupBy('title', 'poster', 'media_id')
+                ->orderByDesc('count')
+                ->take(6)
+                ->get()
+                ->map(function ($item) {
+                    $item->formatted_size = $this->formatBytes((int)$item->bytes);
+                    return $item;
+                });
+
+            // Top Downloaded TV Series
+            $topSeries = DownloadEvent::select('title', 'poster', 'media_id', DB::raw('count(*) as count'), DB::raw('sum(file_size_bytes) as bytes'))
+                ->where('media_type', 'tv')
+                ->where('status', 'completed')
+                ->groupBy('title', 'poster', 'media_id')
+                ->orderByDesc('count')
+                ->take(6)
+                ->get()
+                ->map(function ($item) {
+                    $item->formatted_size = $this->formatBytes((int)$item->bytes);
+                    return $item;
+                });
+
+        } catch (Throwable) {
+            $downloads = new LengthAwarePaginator([], 0, 20);
+            $stats = ['total' => 0, 'completed' => 0, 'offlineWatched' => 0, 'totalData' => '0 MB', 'uniqueDevices' => 0];
+            $topMovies = collect();
+            $topSeries = collect();
+        }
+
+        return view('admin.downloads', compact('downloads', 'stats', 'topMovies', 'topSeries'));
+    }
+
+    // 5. AdMob Monetization Page
     public function admob(): View
     {
         $adsEnabled = (bool)AppSetting::get('ads_enabled', true);
@@ -185,7 +346,6 @@ class DashboardController extends Controller
         return view('admin.admob', compact('adsEnabled', 'settings', 'adStats'));
     }
 
-    // 5. Toggle AdMob (Master Switch)
     public function toggleAdMob(Request $request): RedirectResponse
     {
         $current = (bool)AppSetting::get('ads_enabled', true);
@@ -199,7 +359,6 @@ class DashboardController extends Controller
         return back()->with('success', $statusMsg);
     }
 
-    // 6. Update AdMob Unit IDs
     public function updateAdmobSettings(Request $request): RedirectResponse
     {
         $data = $request->validate([
@@ -220,7 +379,7 @@ class DashboardController extends Controller
         return back()->with('success', 'AdMob unit configurations saved successfully!');
     }
 
-    // 7. Watch History Telemetry Page
+    // 6. Watch History Telemetry Page
     public function watchHistory(Request $request): View
     {
         try {
@@ -242,21 +401,24 @@ class DashboardController extends Controller
 
             $history = $query->orderByDesc('last_watched_at')->paginate(20)->withQueryString();
 
+            $totalSeconds = (int)WatchProgress::sum('current_time');
+
             $stats = [
                 'totalCheckpoints' => WatchProgress::count(),
                 'completed' => WatchProgress::where('completed', true)->count(),
                 'movies' => WatchProgress::where('media_type', 'movie')->count(),
                 'series' => WatchProgress::where('media_type', 'tv')->count(),
+                'totalWatchTime' => $this->formatSeconds($totalSeconds),
             ];
         } catch (Throwable) {
             $history = new LengthAwarePaginator([], 0, 20);
-            $stats = ['totalCheckpoints' => 0, 'completed' => 0, 'movies' => 0, 'series' => 0];
+            $stats = ['totalCheckpoints' => 0, 'completed' => 0, 'movies' => 0, 'series' => 0, 'totalWatchTime' => '0 min'];
         }
 
         return view('admin.watch-history', compact('history', 'stats'));
     }
 
-    // 8. Client App Error Telemetry Logs Page
+    // 7. Client App Error Telemetry Logs Page
     public function errors(Request $request): View
     {
         try {
@@ -334,6 +496,27 @@ class DashboardController extends Controller
         return back()->with('success', "Cleared {$deleted} resolved error logs.");
     }
 
+    // 8. Wipe Mock & Test Data Button
+    public function wipeMockData(Request $request): RedirectResponse
+    {
+        try {
+            Schema::disableForeignKeyConstraints();
+            Device::truncate();
+            WatchProgress::truncate();
+            Bookmark::truncate();
+            AdEvent::truncate();
+            AppError::truncate();
+            if (Schema::hasTable('download_events')) {
+                DownloadEvent::truncate();
+            }
+            Schema::enableForeignKeyConstraints();
+
+            return back()->with('success', 'All mock devices, watch checkpoints, bookmarks, ad telemetry, and error logs wiped cleanly! Platform ready for live user traffic.');
+        } catch (Throwable $e) {
+            return back()->with('error', 'Wipe failed: ' . $e->getMessage());
+        }
+    }
+
     // 9. Remote App Settings Page
     public function settings(): View
     {
@@ -354,14 +537,8 @@ class DashboardController extends Controller
     public function updateSettings(Request $request): RedirectResponse
     {
         $data = $request->validate([
-            'announcement_active' => 'nullable|boolean',
             'announcement_text' => 'nullable|string',
             'min_app_version' => 'nullable|string',
-            'force_update' => 'nullable|boolean',
-            'maintenance_mode' => 'nullable|boolean',
-            'feature_bulk_download' => 'nullable|boolean',
-            'feature_similar_series' => 'nullable|boolean',
-            'feature_cloud_sync' => 'nullable|boolean',
         ]);
 
         AppSetting::set('announcement_active', (bool)$request->has('announcement_active'), 'general');
