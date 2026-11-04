@@ -2,9 +2,9 @@
 
 @section('content')
 <div class="space-y-6 max-w-7xl mx-auto">
-    <!-- Global Toast Notification -->
+    <!-- Global Toast Notification (z-[99999] so always visible above modals) -->
     <div id="globalToast" 
-         class="hidden fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-emerald-500 text-white font-bold text-xs shadow-2xl backdrop-blur-md border border-emerald-400/30 transition-all duration-300">
+         class="hidden fixed bottom-6 right-6 z-[99999] flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-emerald-500 text-white font-bold text-xs shadow-2xl backdrop-blur-md border border-emerald-400/30 transition-all duration-300">
         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
         <span id="globalToastMessage">Copied to clipboard!</span>
     </div>
@@ -185,26 +185,75 @@
                     @forelse($errors as $error)
                         @php
                             $dev = $error->device;
-                            $devId = $error->device_id ?: 'Unknown';
-                            $devUser = $dev?->display_name ?: ('MovieCat #' . strtoupper(substr(md5($devId), 0, 4)));
+                            $devId = $error->device_id ?: ($dev?->device_id ?? 'unknown');
+                            $devUser = $dev?->display_name ?: ($dev?->username ?? 'Anonymous Device');
                             $platform = strtoupper($error->platform ?: ($dev?->platform ?? 'ANDROID'));
                             $os = $dev?->os_version ?: 'OS';
                             $appVer = $error->app_version ?: ($dev?->app_version ?? '1.0.0');
+                            $country = $dev?->country ?: 'Global';
                             $countryFlag = $dev?->country_flag ?: '🌐';
-                            $country = $dev?->country ?: ($dev?->country_code ?: 'Unknown');
                             $ip = $dev?->ip_address ?: '127.0.0.1';
                             $timeStr = $error->created_at ? $error->created_at->format('M d, Y H:i:s') : 'Unknown';
 
-                            $promptText = "I need help debugging and fixing this MovieCat mobile app error:\n" .
-                                "- Severity: " . strtoupper($error->severity) . "\n" .
-                                "- Screen: " . ($error->screen ?: 'global') . "\n" .
-                                "- Error Message: " . $error->error_message . "\n" .
-                                "- Device: " . $devId . " (" . $devUser . ")\n" .
-                                "- Platform & OS: " . $platform . " " . $os . "\n" .
-                                "- App Version: " . $appVer . "\n" .
-                                "- Location: " . $country . "\n" .
-                                (!empty($error->stack_trace) ? "- Stack Trace:\n" . $error->stack_trace . "\n" : "") .
-                                (!empty($error->metadata) ? "- Metadata: " . json_encode($error->metadata) : "");
+                            // Format structured context metadata
+                            $metadataStr = '';
+                            $metaObj = [];
+                            if (!empty($error->metadata)) {
+                                if (is_array($error->metadata)) {
+                                    $metaObj = $error->metadata;
+                                } elseif (is_object($error->metadata)) {
+                                    $metaObj = (array)$error->metadata;
+                                } else {
+                                    $decoded = json_decode($error->metadata, true);
+                                    $metaObj = is_array($decoded) ? $decoded : [];
+                                }
+                                $metadataStr = !empty($metaObj) 
+                                    ? json_encode($metaObj, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+                                    : (string)$error->metadata;
+                            }
+
+                            // Extract media details for crystal-clear debug understanding
+                            $mediaDetails = [];
+                            if (!empty($metaObj['title'])) $mediaDetails[] = "- **Media Title**: " . $metaObj['title'];
+                            if (!empty($metaObj['mediaType'])) $mediaDetails[] = "- **Media Type**: " . strtoupper($metaObj['mediaType']);
+                            if (isset($metaObj['season'])) $mediaDetails[] = "- **Season**: " . $metaObj['season'];
+                            if (isset($metaObj['episode'])) $mediaDetails[] = "- **Episode**: " . $metaObj['episode'];
+                            if (!empty($metaObj['mediaId'])) $mediaDetails[] = "- **Media ID**: " . $metaObj['mediaId'];
+                            if (isset($metaObj['isLocalMedia'])) $mediaDetails[] = "- **Storage**: " . ($metaObj['isLocalMedia'] ? 'Local Download (Offline Vault)' : 'Remote Online Streaming');
+
+                            $mediaContextBlock = !empty($mediaDetails) 
+                                ? implode("\n", $mediaDetails) . "\n" 
+                                : "- *No media context recorded*\n";
+
+                            $httpCode = null;
+                            if (preg_match('/Response code:\s*(\d+)/i', $error->error_message, $mMatches)) {
+                                $httpCode = $mMatches[1];
+                            }
+
+                            $promptText = "### 🐞 MovieCat Mobile App Debug Report\n\n" .
+                                "**Summary**: A client runtime exception was captured on the MovieCat mobile application. Please analyze the root cause and provide clear, step-by-step resolution instructions for both mobile client (React Native / Expo / ExoPlayer) and backend API / streaming server.\n\n" .
+                                "#### 1. Issue Overview\n" .
+                                "- **Issue ID**: #" . $error->id . " (" . $error->error_type . ")\n" .
+                                "- **Severity**: " . strtoupper($error->severity) . "\n" .
+                                "- **Screen**: `" . ($error->screen ?: 'global') . "`\n" .
+                                "- **Reported At**: " . $timeStr . " UTC\n\n" .
+                                "#### 2. Error Message & Diagnostics\n" .
+                                "```\n" . $error->error_message . "\n```\n\n" .
+                                "#### 3. Media & Playback Context\n" .
+                                $mediaContextBlock . "\n" .
+                                "#### 4. Client & Environment Telemetry\n" .
+                                "- **Device ID**: `" . $devId . "` (" . $devUser . ")\n" .
+                                "- **Platform & OS**: " . $platform . " " . $os . "\n" .
+                                "- **App Version**: v" . $appVer . "\n" .
+                                "- **Client IP**: `" . $ip . "`\n" .
+                                "- **Location**: " . $countryFlag . " " . $country . "\n\n" .
+                                "#### 5. Context Metadata (Raw JSON)\n" .
+                                "```json\n" . (!empty($metadataStr) ? $metadataStr : "{}\n") . "\n```\n\n" .
+                                (!empty($error->stack_trace) ? "#### 6. Stack Trace\n```\n" . $error->stack_trace . "\n```\n\n" : "") .
+                                "#### " . (!empty($error->stack_trace) ? "7" : "6") . ". Questions for AI Assistant\n" .
+                                "1. **Root Cause**: Why did this exception occur on the `" . ($error->screen ?: 'global') . "` screen?" . ($httpCode ? " What does HTTP Response Code " . $httpCode . " indicate in video streaming / CDN (e.g. Cloudflare / ExoPlayer rate limiting or blocked IP)?" : "") . "\n" .
+                                "2. **Client-Side Resilience**: What error recovery, retry strategy, or player fallback logic should be implemented in the mobile app (`app/(tabs)/player.tsx` or Video Player component) so playback recovers gracefully without interrupting the user experience?\n" .
+                                "3. **Backend / CDN Fix**: What server-side headers, Cloudflare rules, CORS configuration, or CDN token parameters should be updated to resolve this issue?\n";
 
                             $errorJsonData = [
                                 'id' => $error->id,
@@ -223,7 +272,7 @@
                                 'time' => $timeStr,
                                 'resolved' => (bool)$error->resolved,
                                 'stack_trace' => $error->stack_trace,
-                                'metadata' => $error->metadata,
+                                'metadata' => $metaObj ?: $error->metadata,
                                 'prompt' => $promptText,
                                 'resolve_url' => route('admin.errors.resolve', $error->id),
                             ];
@@ -300,13 +349,13 @@
                             <!-- Status -->
                             <td class="py-4 align-top">
                                 @if($error->resolved)
-                                    <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 w-max">
-                                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
                                         Resolved
                                     </span>
                                 @else
-                                    <span class="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-500/15 text-rose-400 border border-rose-500/30 flex items-center gap-1 w-max">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                        <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
                                         Open
                                     </span>
                                 @endif
@@ -328,25 +377,30 @@
                                     Inspect
                                 </button>
 
-                                <!-- 1-Click Copy AI Prompt -->
+                                <!-- 1-Click Copy AI Prompt (with instant checkmark feedback) -->
                                 <button type="button" 
-                                        onclick="copyToClipboard({{ json_encode($promptText) }}, 'Copied debug prompt for AI!')"
+                                        onclick="copyRowPrompt(this, {{ json_encode($promptText) }})"
                                         title="Copy formatted prompt for AI assistant (Claude/GPT/Gemini)"
-                                        class="p-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 transition-colors inline-flex items-center">
+                                        class="p-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 transition-all inline-flex items-center">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
                                 </button>
 
                                 <!-- Resolve Toggle -->
                                 <form action="{{ route('admin.errors.resolve', $error->id) }}" method="POST" class="inline">
                                     @csrf
-                                    <button type="submit" 
-                                            class="px-2.5 py-1 rounded-lg {{ $error->resolved ? 'bg-white/5 text-slate-400 hover:text-white' : 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25 border border-emerald-500/30' }} text-[11px] font-semibold transition-colors">
-                                        {{ $error->resolved ? 'Reopen' : 'Resolve' }}
-                                    </button>
+                                    @if($error->resolved)
+                                        <button type="submit" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white text-[11px] font-semibold border border-white/10 transition-colors">
+                                            Reopen
+                                        </button>
+                                    @else
+                                        <button type="submit" class="px-2 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold transition-colors">
+                                            Resolve
+                                        </button>
+                                    @endif
                                 </form>
 
                                 <!-- Delete -->
-                                <form action="{{ route('admin.errors.delete', $error->id) }}" method="POST" class="inline" onsubmit="return confirm('Delete this error log?')">
+                                <form action="{{ route('admin.errors.delete', $error->id) }}" method="POST" class="inline" onsubmit="return confirm('Delete this error log record permanently?')">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-white/5 transition-colors" title="Delete Log">
@@ -379,7 +433,7 @@
 <!-- SINGLE UNIVERSAL INSPECT ERROR MODAL (Native Vanilla JS) -->
 <div id="universalInspectModal" 
      class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 text-left">
-    <div class="glass-panel p-6 sm:p-8 rounded-3xl max-w-3xl w-full border border-white/10 shadow-2xl max-h-[90vh] overflow-y-auto space-y-6">
+    <div class="glass-panel p-6 sm:p-8 rounded-3xl max-w-3xl w-full border border-white/10 shadow-2xl max-h-[92vh] overflow-y-auto space-y-5">
         
         <!-- Modal Top Bar -->
         <div class="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
@@ -427,35 +481,75 @@
                 </div>
                 <button type="button" 
                         id="modalCopyTraceBtn"
-                        class="text-[11px] font-semibold text-sky-400 hover:text-sky-300 flex items-center gap-1">
+                        class="text-[11px] font-semibold text-sky-400 hover:text-sky-300 flex items-center gap-1 bg-sky-500/10 px-2 py-1 rounded-lg border border-sky-500/20">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
-                    Copy Trace
+                    <span id="modalCopyTraceBtnText">Copy Trace</span>
                 </button>
             </div>
-            <pre id="modalStackTrace" class="p-4 rounded-2xl bg-[#0B0C10] border border-white/10 text-emerald-400 font-mono text-[11px] overflow-x-auto max-h-60 whitespace-pre-wrap leading-relaxed"></pre>
+            <pre id="modalStackTrace" class="p-4 rounded-2xl bg-[#0B0C10] border border-white/10 text-emerald-400 font-mono text-[11px] overflow-x-auto max-h-48 whitespace-pre-wrap leading-relaxed"></pre>
         </div>
 
         <!-- Metadata Section -->
         <div id="modalMetadataSection" class="space-y-2">
             <div class="text-xs font-bold text-slate-300 uppercase tracking-wider">Context Metadata</div>
-            <pre id="modalMetadata" class="p-4 rounded-2xl bg-[#0B0C10] border border-white/10 text-amber-300 font-mono text-[11px] overflow-x-auto max-h-40 whitespace-pre-wrap"></pre>
+            <pre id="modalMetadata" class="p-4 rounded-2xl bg-[#0B0C10] border border-white/10 text-amber-300 font-mono text-[11px] overflow-x-auto max-h-36 whitespace-pre-wrap"></pre>
+        </div>
+
+        <!-- Generated AI Debug Prompt Box (Instant Visual Copy & Preview) -->
+        <div class="space-y-2 pt-2 border-t border-white/10">
+            <div class="flex items-center justify-between">
+                <div class="text-xs font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                    AI Debug Prompt Preview (Ready for Claude, ChatGPT, Gemini)
+                </div>
+                <button type="button" 
+                        id="modalPromptQuickCopy" 
+                        onclick="copyModalPrompt()" 
+                        class="text-[11px] font-bold text-purple-300 hover:text-white flex items-center gap-1.5 bg-purple-500/20 hover:bg-purple-500/30 px-3 py-1 rounded-xl border border-purple-500/40 transition-all">
+                    <svg class="w-3.5 h-3.5 text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                    <span id="modalPromptQuickCopyText">Copy Prompt</span>
+                </button>
+            </div>
+            <div class="relative">
+                <textarea id="modalPromptTextarea" 
+                          readonly 
+                          rows="6" 
+                          class="w-full p-3.5 rounded-2xl bg-[#090A0F] border border-purple-500/30 text-purple-200 font-mono text-[11px] focus:ring-1 focus:ring-purple-400 outline-none leading-relaxed cursor-pointer select-all"
+                          onclick="this.select()"
+                          title="Click to select all text"></textarea>
+                <div class="text-[10px] text-slate-500 mt-1 flex items-center justify-between">
+                    <span>💡 Tip: Click inside box to select all text, or click "Copy Prompt".</span>
+                    <span class="text-purple-400/80 font-mono">Markdown Format</span>
+                </div>
+            </div>
         </div>
 
         <!-- Modal Footer Actions -->
         <div class="flex items-center justify-between gap-3 pt-4 border-t border-white/10 flex-wrap">
-            <button type="button" 
-                    id="modalCopyPromptBtn"
-                    class="px-4 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 text-xs font-bold flex items-center gap-2 transition-all">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
-                Copy Debug Prompt for AI
-            </button>
+            <div class="flex items-center gap-2">
+                <button type="button" 
+                        id="modalCopyPromptBtn"
+                        onclick="copyModalPrompt()"
+                        class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white border border-purple-400/30 text-xs font-bold flex items-center gap-2 transition-all shadow-lg shadow-purple-500/20">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                    <span id="modalCopyPromptBtnText">Copy Debug Prompt for AI</span>
+                </button>
+
+                <button type="button" 
+                        id="modalCopyRawMsgBtn"
+                        onclick="copyRawErrorMessage()"
+                        class="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/10 text-xs font-semibold flex items-center gap-1.5 transition-all">
+                    <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                    <span id="modalCopyRawMsgBtnText">Copy Raw Error</span>
+                </button>
+            </div>
 
             <div class="flex items-center gap-2">
                 <form id="modalResolveForm" method="POST">
                     @csrf
-                    <button type="submit" id="modalResolveBtn" class="px-4 py-2 rounded-xl text-white text-xs font-bold transition-all shadow-md"></button>
+                    <button type="submit" id="modalResolveBtn" class="px-4 py-2.5 rounded-xl text-white text-xs font-bold transition-all shadow-md"></button>
                 </form>
-                <button type="button" onclick="closeInspectModal()" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold">
+                <button type="button" onclick="closeInspectModal()" class="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold">
                     Close
                 </button>
             </div>
@@ -504,7 +598,14 @@ function openInspectModal(data) {
         traceSection.classList.remove('hidden');
         traceElem.textContent = data.stack_trace;
         document.getElementById('modalCopyTraceBtn').onclick = function() {
-            copyToClipboard(data.stack_trace, 'Stack trace copied to clipboard!');
+            copyTextToClipboard(data.stack_trace, function() {
+                showToast('Stack trace copied to clipboard!');
+                const txt = document.getElementById('modalCopyTraceBtnText');
+                if (txt) {
+                    txt.textContent = '✓ Copied!';
+                    setTimeout(() => txt.textContent = 'Copy Trace', 2000);
+                }
+            });
         };
     } else {
         traceSection.classList.add('hidden');
@@ -520,10 +621,11 @@ function openInspectModal(data) {
         metaSection.classList.add('hidden');
     }
 
-    // Copy Prompt Button
-    document.getElementById('modalCopyPromptBtn').onclick = function() {
-        copyToClipboard(data.prompt, 'Debug prompt copied for AI Assistant!');
-    };
+    // AI Prompt Preview Textarea
+    const promptTextarea = document.getElementById('modalPromptTextarea');
+    if (promptTextarea) {
+        promptTextarea.value = data.prompt || '';
+    }
 
     // Resolve Form Button
     const resolveForm = document.getElementById('modalResolveForm');
@@ -531,10 +633,10 @@ function openInspectModal(data) {
     resolveForm.action = data.resolve_url;
     if (data.resolved) {
         resolveBtn.textContent = 'Reopen Issue';
-        resolveBtn.className = 'px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white text-xs font-bold transition-all';
+        resolveBtn.className = 'px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white text-xs font-bold transition-all';
     } else {
         resolveBtn.textContent = 'Mark as Resolved';
-        resolveBtn.className = 'px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-md';
+        resolveBtn.className = 'px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-md';
     }
 
     modal.classList.remove('hidden');
@@ -556,34 +658,150 @@ function toggleExportDropdown() {
     }
 }
 
-function copyToClipboard(text, msg) {
-    if (!msg) msg = 'Copied to clipboard!';
-    if (navigator.clipboard && window.isSecureContext) {
-        navigator.clipboard.writeText(text).then(function() {
-            showToast(msg);
-        }).catch(function() {
-            fallbackCopy(text, msg);
-        });
-    } else {
-        fallbackCopy(text, msg);
+// Copy the full AI Debug Prompt from the modal with multi-element visual feedback
+function copyModalPrompt() {
+    if (!currentInspectData || !currentInspectData.prompt) {
+        showToast('No prompt data available');
+        return;
     }
+
+    const promptText = currentInspectData.prompt;
+    
+    // Select the visible textarea for visual confirmation
+    const promptTextarea = document.getElementById('modalPromptTextarea');
+    if (promptTextarea) {
+        promptTextarea.focus();
+        promptTextarea.select();
+    }
+
+    copyTextToClipboard(promptText, function() {
+        showToast('✓ AI Debug Prompt copied to clipboard!');
+
+        // Update footer button
+        const mainBtnText = document.getElementById('modalCopyPromptBtnText');
+        const mainBtn = document.getElementById('modalCopyPromptBtn');
+        if (mainBtnText && mainBtn) {
+            mainBtnText.textContent = '✓ Copied to Clipboard!';
+            mainBtn.classList.add('ring-2', 'ring-emerald-400');
+            setTimeout(function() {
+                mainBtnText.textContent = 'Copy Debug Prompt for AI';
+                mainBtn.classList.remove('ring-2', 'ring-emerald-400');
+            }, 2500);
+        }
+
+        // Update top-right quick copy button
+        const quickText = document.getElementById('modalPromptQuickCopyText');
+        if (quickText) {
+            quickText.textContent = '✓ Copied!';
+            setTimeout(function() {
+                quickText.textContent = 'Copy Prompt';
+            }, 2500);
+        }
+    }, function(err) {
+        showToast('Press Cmd+C / Ctrl+C to copy selected text');
+    });
 }
 
-function fallbackCopy(text, msg) {
+// Copy raw error message
+function copyRawErrorMessage() {
+    if (!currentInspectData) return;
+    const msg = currentInspectData.error_message || '';
+    copyTextToClipboard(msg, function() {
+        showToast('✓ Error message copied to clipboard!');
+        const btnText = document.getElementById('modalCopyRawMsgBtnText');
+        if (btnText) {
+            btnText.textContent = '✓ Copied!';
+            setTimeout(() => btnText.textContent = 'Copy Raw Error', 2000);
+        }
+    });
+}
+
+// Copy prompt from table row with icon animation
+function copyRowPrompt(btn, promptText) {
+    const originalHtml = btn.innerHTML;
+    copyTextToClipboard(promptText, function() {
+        showToast('✓ AI debug prompt copied to clipboard!');
+        btn.innerHTML = `<svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>`;
+        btn.classList.add('bg-emerald-500/20', 'border-emerald-500/40');
+        setTimeout(function() {
+            btn.innerHTML = originalHtml;
+            btn.classList.remove('bg-emerald-500/20', 'border-emerald-500/40');
+        }, 2500);
+    }, function() {
+        showToast('Press Cmd+C / Ctrl+C to copy');
+    });
+}
+
+// Bulletproof multi-strategy clipboard copier
+function copyTextToClipboard(text, onSuccess, onError) {
+    if (!text) {
+        if (onError) onError('No text provided');
+        return;
+    }
+
+    // Strategy 1: Async Clipboard API (Modern Secure Contexts)
+    if (navigator.clipboard && window.isSecureContext && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+            if (onSuccess) onSuccess();
+        }).catch(function() {
+            fallbackExecCopy(text, onSuccess, onError);
+        });
+        return;
+    }
+
+    // Strategy 2: execCommand fallback (Non-HTTPS / Legacy / Sandboxed)
+    fallbackExecCopy(text, onSuccess, onError);
+}
+
+function fallbackExecCopy(text, onSuccess, onError) {
+    // If modal prompt textarea is available and matching, copy directly from it
+    const promptTextarea = document.getElementById('modalPromptTextarea');
+    if (promptTextarea && promptTextarea.value === text) {
+        promptTextarea.focus();
+        promptTextarea.select();
+        promptTextarea.setSelectionRange(0, 999999);
+        try {
+            const ok = document.execCommand('copy');
+            if (ok) {
+                if (onSuccess) onSuccess();
+                return;
+            }
+        } catch (e) {}
+    }
+
+    // Fallback: Create unconstrained temporary textarea in DOM
     const el = document.createElement('textarea');
     el.value = text;
-    el.setAttribute('readonly', '');
-    el.style.position = 'absolute';
-    el.style.left = '-9999px';
+    el.style.position = 'fixed';
+    el.style.top = '10px';
+    el.style.left = '10px';
+    el.style.width = '100px';
+    el.style.height = '100px';
+    el.style.padding = '0';
+    el.style.border = 'none';
+    el.style.outline = 'none';
+    el.style.boxShadow = 'none';
+    el.style.background = 'transparent';
+    el.style.opacity = '0.01';
+    el.style.zIndex = '99999';
     document.body.appendChild(el);
+    el.focus();
     el.select();
+    el.setSelectionRange(0, 999999);
+
+    let success = false;
     try {
-        document.execCommand('copy');
-        showToast(msg);
-    } catch (e) {
-        console.warn('Copy failed', e);
+        success = document.execCommand('copy');
+    } catch (err) {
+        success = false;
     }
     document.body.removeChild(el);
+
+    if (success) {
+        if (onSuccess) onSuccess();
+    } else {
+        if (onError) onError('Browser prevented automated copy');
+    }
 }
 
 function showToast(msg) {
@@ -598,24 +816,29 @@ function showToast(msg) {
     }
 }
 
-// Close modal when pressing Escape or clicking backdrop
-window.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
+// Close modal when clicking backdrop
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('universalInspectModal');
+    if (modal && !modal.classList.contains('hidden') && e.target === modal) {
         closeInspectModal();
-        const menu = document.getElementById('exportDropdownMenu');
-        if (menu) menu.classList.add('hidden');
+    }
+
+    // Close export dropdown when clicking outside
+    const exportBtn = document.getElementById('exportDropdownBtn');
+    const exportMenu = document.getElementById('exportDropdownMenu');
+    if (exportMenu && !exportMenu.classList.contains('hidden')) {
+        if (exportBtn && !exportBtn.contains(e.target) && !exportMenu.contains(e.target)) {
+            exportMenu.classList.add('hidden');
+        }
     }
 });
 
-window.addEventListener('click', function(e) {
-    const modal = document.getElementById('universalInspectModal');
-    if (modal && e.target === modal) {
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
         closeInspectModal();
-    }
-    const btn = document.getElementById('exportDropdownBtn');
-    const menu = document.getElementById('exportDropdownMenu');
-    if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
-        menu.classList.add('hidden');
+        const exportMenu = document.getElementById('exportDropdownMenu');
+        if (exportMenu) exportMenu.classList.add('hidden');
     }
 });
 </script>
