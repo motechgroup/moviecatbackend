@@ -26,7 +26,7 @@
                 <textarea name="announcement_text" rows="2" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-slate-200 focus:outline-none focus:border-[#FF2E4C]">{{ $settings['announcement_text'] }}</textarea>
             </div>
             <label class="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer">
-                <input type="checkbox" name="announcement_active" value="1" {{ $settings['announcement_active'] ? 'checked' : '' }} class="w-4 h-4 accent-[#FF2E4C] rounded">
+                <input type="checkbox" name="announcement_active" value="1" {{ ($settings['announcement_active'] ?? true) ? 'checked' : '' }} class="w-4 h-4 accent-[#FF2E4C] rounded">
                 <span>Display announcement banner in mobile app home screen</span>
             </label>
         </div>
@@ -44,7 +44,7 @@
                 </div>
                 <div class="flex items-end">
                     <label class="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer pb-2">
-                        <input type="checkbox" name="force_update" value="1" {{ $settings['force_update'] ? 'checked' : '' }} class="w-4 h-4 accent-[#FF2E4C] rounded">
+                        <input type="checkbox" name="force_update" value="1" {{ ($settings['force_update'] ?? false) ? 'checked' : '' }} class="w-4 h-4 accent-[#FF2E4C] rounded">
                         <span>Force update on outdated versions</span>
                     </label>
                 </div>
@@ -52,7 +52,7 @@
 
             <div class="pt-3 border-t border-white/5">
                 <label class="flex items-center gap-2.5 text-xs text-rose-300 cursor-pointer">
-                    <input type="checkbox" name="maintenance_mode" value="1" {{ $settings['maintenance_mode'] ? 'checked' : '' }} class="w-4 h-4 accent-rose-500 rounded">
+                    <input type="checkbox" name="maintenance_mode" value="1" {{ ($settings['maintenance_mode'] ?? false) ? 'checked' : '' }} class="w-4 h-4 accent-rose-500 rounded">
                     <span>Enable Maintenance Mode (Restricts app access with maintenance notice)</span>
                 </label>
             </div>
@@ -66,19 +66,19 @@
             </h2>
             <div class="space-y-3 text-xs">
                 <label class="flex items-center gap-2.5 text-slate-200 cursor-pointer p-2.5 rounded-xl bg-white/[0.02] border border-white/5">
-                    <input type="checkbox" name="feature_downloads_enabled" value="1" {{ $settings['feature_downloads_enabled'] ? 'checked' : '' }} class="w-4 h-4 accent-[#FF2E4C] rounded">
+                    <input type="checkbox" name="feature_downloads_enabled" value="1" {{ ($settings['feature_downloads_enabled'] ?? true) ? 'checked' : '' }} class="w-4 h-4 accent-[#FF2E4C] rounded">
                     <span class="font-bold text-white">Enable Offline Downloads (Allows users to download movies and series into device vault)</span>
                 </label>
                 <label class="flex items-center gap-2.5 text-slate-300 cursor-pointer">
-                    <input type="checkbox" name="feature_bulk_download" value="1" {{ $settings['feature_bulk_download'] ? 'checked' : '' }} class="w-4 h-4 accent-[#FF2E4C] rounded">
+                    <input type="checkbox" name="feature_bulk_download" value="1" {{ ($settings['feature_bulk_download'] ?? true) ? 'checked' : '' }} class="w-4 h-4 accent-[#FF2E4C] rounded">
                     <span>Bulk Downloads for TV series & movies</span>
                 </label>
                 <label class="flex items-center gap-2.5 text-slate-300 cursor-pointer">
-                    <input type="checkbox" name="feature_similar_series" value="1" {{ $settings['feature_similar_series'] ? 'checked' : '' }} class="w-4 h-4 accent-[#FF2E4C] rounded">
+                    <input type="checkbox" name="feature_similar_series" value="1" {{ ($settings['feature_similar_series'] ?? true) ? 'checked' : '' }} class="w-4 h-4 accent-[#FF2E4C] rounded">
                     <span>Similar Series recommendations section</span>
                 </label>
                 <label class="flex items-center gap-2.5 text-slate-300 cursor-pointer">
-                    <input type="checkbox" name="feature_cloud_sync" value="1" {{ $settings['feature_cloud_sync'] ? 'checked' : '' }} class="w-4 h-4 accent-[#FF2E4C] rounded">
+                    <input type="checkbox" name="feature_cloud_sync" value="1" {{ ($settings['feature_cloud_sync'] ?? true) ? 'checked' : '' }} class="w-4 h-4 accent-[#FF2E4C] rounded">
                     <span>Cloud Watch Progress Sync</span>
                 </label>
             </div>

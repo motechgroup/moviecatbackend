@@ -799,6 +799,7 @@ class DashboardController extends Controller
             'min_app_version' => AppSetting::get('min_app_version', '1.0.0'),
             'force_update' => (bool)AppSetting::get('force_update', false),
             'maintenance_mode' => (bool)AppSetting::get('maintenance_mode', false),
+            'feature_downloads_enabled' => (bool)AppSetting::get('feature_downloads_enabled', true),
             'feature_bulk_download' => (bool)AppSetting::get('feature_bulk_download', true),
             'feature_similar_series' => (bool)AppSetting::get('feature_similar_series', true),
             'feature_cloud_sync' => (bool)AppSetting::get('feature_cloud_sync', true),
@@ -817,6 +818,7 @@ class DashboardController extends Controller
         AppSetting::set('announcement_active', (bool)$request->has('announcement_active'), 'general');
         AppSetting::set('force_update', (bool)$request->has('force_update'), 'general');
         AppSetting::set('maintenance_mode', (bool)$request->has('maintenance_mode'), 'general');
+        AppSetting::set('feature_downloads_enabled', (bool)$request->has('feature_downloads_enabled'), 'features');
         AppSetting::set('feature_bulk_download', (bool)$request->has('feature_bulk_download'), 'features');
         AppSetting::set('feature_similar_series', (bool)$request->has('feature_similar_series'), 'features');
         AppSetting::set('feature_cloud_sync', (bool)$request->has('feature_cloud_sync'), 'features');
