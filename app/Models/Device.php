@@ -91,16 +91,7 @@ class Device extends Model
             ->orderByDesc('created_at');
     }
 
-    public function getFormattedWatchTimeAttribute(): string
-    {
-        $seconds = $this->total_watch_seconds;
-        if ($seconds < 60) return "{$seconds}s";
-        $minutes = floor($seconds / 60);
-        if ($minutes < 60) return "{$minutes}m";
-        $hours = floor($minutes / 60);
-        $remMin = $minutes % 60;
-        return "{$hours}h {$remMin}m";
-    }
+
 
     public function downloads(): HasMany
     {

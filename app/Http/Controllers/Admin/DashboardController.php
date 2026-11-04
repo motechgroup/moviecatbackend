@@ -43,9 +43,59 @@ class DashboardController extends Controller
         return number_format($bytes / 1024, 0) . ' KB';
     }
 
+    private function syncMissingDevices(): void
+    {
+        try {
+            // Find device_ids in app_errors that are not yet in devices table
+            $missingFromErrors = DB::table('app_errors')
+                ->whereNotNull('device_id')
+                ->where('device_id', '!=', '')
+                ->whereNotIn('device_id', function ($query) {
+                    $query->select('device_id')->from('devices');
+                })
+                ->distinct()
+                ->pluck('device_id');
+
+            // Find device_ids in watch_progress that are not yet in devices table
+            $missingFromWatch = DB::table('watch_progress')
+                ->whereNotNull('device_id')
+                ->where('device_id', '!=', '')
+                ->whereNotIn('device_id', function ($query) {
+                    $query->select('device_id')->from('devices');
+                })
+                ->distinct()
+                ->pluck('device_id');
+
+            $allMissing = $missingFromErrors->merge($missingFromWatch)->unique();
+
+            foreach ($allMissing as $devId) {
+                if (empty($devId)) continue;
+                $latestError = DB::table('app_errors')->where('device_id', $devId)->latest('created_at')->first();
+                $latestWatch = DB::table('watch_progress')->where('device_id', $devId)->latest('last_watched_at')->first();
+
+                $lastActive = $latestError?->created_at ?? ($latestWatch?->last_watched_at ?? now());
+                $platform = $latestError?->platform ?? 'android';
+                $appVersion = $latestError?->app_version ?? '1.0.0';
+
+                Device::create([
+                    'device_id' => $devId,
+                    'username' => 'MovieCat #' . strtoupper(substr(md5($devId), 0, 4)),
+                    'platform' => $platform,
+                    'device_name' => 'Mobile Device',
+                    'app_version' => $appVersion,
+                    'country' => 'Kenya',
+                    'country_code' => 'KE',
+                    'last_active_at' => $lastActive,
+                    'sessions_count' => 1,
+                ]);
+            }
+        } catch (\Throwable) {}
+    }
+
     // 1. Overview Dashboard with Analytics
     public function index(): View
     {
+        $this->syncMissingDevices();
         try {
             $activeThreshold = now()->subMinutes(15);
             $recentActiveThreshold = now()->subHours(24);
@@ -165,6 +215,7 @@ class DashboardController extends Controller
     // 2. Active Devices Fleet Page
     public function devices(Request $request): View
     {
+        $this->syncMissingDevices();
         $activeThreshold = now()->subMinutes(15);
         $recentActiveThreshold = now()->subHours(24);
 
@@ -436,6 +487,7 @@ class DashboardController extends Controller
     // 7. Client App Error Telemetry Logs Page
     public function errors(Request $request): View
     {
+        $this->syncMissingDevices();
         try {
             $query = AppError::with('device');
 

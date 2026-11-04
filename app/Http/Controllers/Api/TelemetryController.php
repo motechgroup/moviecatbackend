@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AdEvent;
 use App\Models\AppError;
+use App\Models\Device;
 use App\Models\DownloadEvent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,6 +21,16 @@ class TelemetryController extends Controller
             'device_id' => 'nullable|string',
             'extra' => 'nullable|array',
         ]);
+
+        $deviceId = $validated['device_id'] ?? $request->header('X-Device-Id');
+        if ($deviceId) {
+            try {
+                $device = Device::where('device_id', $deviceId)->first();
+                if ($device) {
+                    $device->update(['last_active_at' => now()]);
+                }
+            } catch (\Throwable) {}
+        }
 
         $event = AdEvent::create([
             'device_id' => $validated['device_id'] ?? $request->header('X-Device-Id'),
@@ -51,6 +62,30 @@ class TelemetryController extends Controller
         ]);
 
         $deviceId = $validated['device_id'] ?? $request->header('X-Device-Id');
+
+        if ($deviceId) {
+            try {
+                $cfCountry = strtoupper(trim((string)$request->header('CF-IPCountry')));
+                $countryCode = (strlen($cfCountry) === 2 && $cfCountry !== 'XX') ? $cfCountry : 'KE';
+                $device = Device::where('device_id', $deviceId)->first();
+                if (!$device) {
+                    Device::create([
+                        'device_id' => $deviceId,
+                        'username' => 'MovieCat #' . strtoupper(substr(md5($deviceId), 0, 4)),
+                        'platform' => $validated['platform'] ?? $request->header('X-Platform', 'android'),
+                        'device_name' => 'Mobile Device',
+                        'app_version' => $validated['app_version'] ?? '1.0.0',
+                        'ip_address' => $request->ip(),
+                        'country' => 'Kenya',
+                        'country_code' => $countryCode,
+                        'last_active_at' => now(),
+                        'sessions_count' => 1,
+                    ]);
+                } else {
+                    $device->update(['last_active_at' => now()]);
+                }
+            } catch (\Throwable) {}
+        }
 
         $error = AppError::create([
             'device_id' => $deviceId,
