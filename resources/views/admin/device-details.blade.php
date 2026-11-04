@@ -20,6 +20,10 @@
                 <div>
                     <div class="flex items-center gap-2.5 flex-wrap">
                         <h1 class="text-2xl font-black text-white tracking-tight">{{ $device->display_name }}</h1>
+                        <button onclick="document.getElementById('renameModal').classList.remove('hidden')" class="px-2.5 py-1 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1 transition-all">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                            Rename
+                        </button>
                         <span class="text-xl" title="{{ $device->country }}">{{ $device->country_flag }}</span>
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">Auto Guest Account</span>
                         @if($device->isOnline())
@@ -207,3 +211,28 @@
     @endif
 </div>
 @endsection
+
+    <!-- Rename Device Modal -->
+    <div id="renameModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div class="glass-panel p-6 rounded-3xl max-w-md w-full border border-white/10 shadow-2xl space-y-5">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <svg class="w-5 h-5 text-[#FF2E4C]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                    Rename Device
+                </h3>
+                <button onclick="document.getElementById('renameModal').classList.add('hidden')" class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
+            </div>
+            <p class="text-xs text-slate-400">Change the friendly handle or label for this device (ID: <span class="font-mono text-slate-300">{{ $device->device_id }}</span>).</p>
+            <form method="POST" action="{{ route('admin.devices.rename', $device->device_id) }}" class="space-y-4">
+                @csrf
+                <div>
+                    <label class="block text-xs font-semibold text-slate-300 mb-1.5">Device Handle / Username</label>
+                    <input type="text" name="username" value="{{ $device->username ?: $device->display_name }}" required maxlength="64" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-[#FF2E4C]">
+                </div>
+                <div class="flex items-center justify-end gap-2 pt-2">
+                    <button type="button" onclick="document.getElementById('renameModal').classList.add('hidden')" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold transition-colors">Cancel</button>
+                    <button type="submit" class="px-5 py-2 rounded-xl bg-[#FF2E4C] hover:bg-[#E02440] text-white text-xs font-bold transition-all shadow-lg shadow-[#FF2E4C]/30">Save Handle</button>
+                </div>
+            </form>
+        </div>
+    </div>

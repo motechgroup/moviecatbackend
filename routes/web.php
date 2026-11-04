@@ -25,6 +25,7 @@ Route::prefix('admin')->group(function () {
         // Active Devices Fleet
         Route::get('/devices', [DashboardController::class, 'devices'])->name('admin.devices.index');
         Route::get('/devices/{deviceId}', [DashboardController::class, 'showDevice'])->name('admin.devices.show');
+        Route::post('/devices/{deviceId}/rename', [DashboardController::class, 'renameDevice'])->name('admin.devices.rename');
 
         // AdMob Monetization
         Route::get('/admob', [DashboardController::class, 'admob'])->name('admin.admob.index');

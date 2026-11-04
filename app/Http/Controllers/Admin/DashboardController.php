@@ -277,6 +277,21 @@ class DashboardController extends Controller
     }
 
     // 3. Device Details Page
+    public function renameDevice(Request $request, string $deviceId): RedirectResponse
+    {
+        $validated = $request->validate([
+            'username' => 'required|string|max:64',
+        ]);
+
+        try {
+            $device = Device::where('device_id', $deviceId)->firstOrFail();
+            $device->update(['username' => trim($validated['username'])]);
+            return back()->with('status', "Device renamed to '{$validated['username']}' successfully.");
+        } catch (\Throwable $e) {
+            return back()->with('error', "Could not rename device: " . $e->getMessage());
+        }
+    }
+
     public function showDevice(string $deviceId): View
     {
         try {
