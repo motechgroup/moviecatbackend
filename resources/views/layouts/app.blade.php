@@ -24,6 +24,7 @@
         }
     </style>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 </head>
 <body class="bg-[#0A0B10] text-slate-100 min-h-screen selection:bg-[#FF2E4C] selection:text-white antialiased">
     <div id="app-container" class="min-h-screen flex">

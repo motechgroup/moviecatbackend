@@ -89,10 +89,10 @@ class DashboardController extends Controller
                     'sessions_count' => 1,
                 ]);
             }
-        } catch (\Throwable) {}
+        } catch (Throwable) {}
     }
 
-    // 1. Overview Dashboard with Analytics
+    // 1. Overview Dashboard with Modern Analytics & Telemetry
     public function index(): View
     {
         $this->syncMissingDevices();
@@ -122,9 +122,96 @@ class DashboardController extends Controller
                 'totalErrors' => AppError::count(),
                 'totalCountries' => (Schema::hasColumn('devices', 'country_code') ? Device::distinct()->count('country_code') : 0),
                 'totalWatchTime' => $this->formatSeconds($totalWatchSeconds),
+                'totalWatchSeconds' => $totalWatchSeconds,
                 'totalDownloads' => $totalDownloads,
                 'totalDataTransferred' => $this->formatBytes($totalDownloadBytes),
             ];
+
+            // 7-day streaming velocity & activity trend
+            $trendDays = collect();
+            for ($i = 6; $i >= 0; $i--) {
+                $d = now()->subDays($i);
+                $key = $d->format('Y-m-d');
+                $trendDays->put($key, [
+                    'label' => $d->format('D, M j'),
+                    'short_label' => $d->format('M j'),
+                    'watch_minutes' => 0,
+                    'checkpoints' => 0,
+                    'downloads' => 0,
+                ]);
+            }
+
+            try {
+                $recentWatches = WatchProgress::select(
+                        DB::raw('DATE(last_watched_at) as watch_date'),
+                        DB::raw('SUM(current_time) as total_seconds'),
+                        DB::raw('COUNT(*) as total_count')
+                    )
+                    ->where('last_watched_at', '>=', now()->subDays(7)->startOfDay())
+                    ->groupBy('watch_date')
+                    ->get();
+
+                foreach ($recentWatches as $rw) {
+                    if ($rw->watch_date && $trendDays->has($rw->watch_date)) {
+                        $item = $trendDays->get($rw->watch_date);
+                        $item['watch_minutes'] = round(((int)$rw->total_seconds) / 60, 1);
+                        $item['checkpoints'] = (int)$rw->total_count;
+                        $trendDays->put($rw->watch_date, $item);
+                    }
+                }
+            } catch (\Throwable) {}
+
+            try {
+                if (Schema::hasTable('download_events')) {
+                    $recentDls = DownloadEvent::select(
+                            DB::raw('DATE(created_at) as dl_date'),
+                            DB::raw('COUNT(*) as total_count')
+                        )
+                        ->where('created_at', '>=', now()->subDays(7)->startOfDay())
+                        ->groupBy('dl_date')
+                        ->get();
+
+                    foreach ($recentDls as $rd) {
+                        if ($rd->dl_date && $trendDays->has($rd->dl_date)) {
+                            $item = $trendDays->get($rd->dl_date);
+                            $item['downloads'] = (int)$rd->total_count;
+                            $trendDays->put($rd->dl_date, $item);
+                        }
+                    }
+                }
+            } catch (\Throwable) {}
+
+            $trendLabels = $trendDays->pluck('short_label')->values();
+            $trendWatchMins = $trendDays->pluck('watch_minutes')->values();
+            $trendCheckpoints = $trendDays->pluck('checkpoints')->values();
+            $trendDownloads = $trendDays->pluck('downloads')->values();
+
+            // Client Fleet Ecosystem Breakdown
+            $androidCount = $stats['androidDevices'];
+            $iosCount = $stats['iosDevices'];
+            $otherCount = max(0, $stats['totalDevices'] - $androidCount - $iosCount);
+            $androidPct = $stats['totalDevices'] > 0 ? round(($androidCount / $stats['totalDevices']) * 100, 1) : 0;
+            $iosPct = $stats['totalDevices'] > 0 ? round(($iosCount / $stats['totalDevices']) * 100, 1) : 0;
+            $otherPct = $stats['totalDevices'] > 0 ? round(($otherCount / $stats['totalDevices']) * 100, 1) : 0;
+
+            $platformBreakdown = [
+                'android' => $androidCount,
+                'ios' => $iosCount,
+                'other' => $otherCount,
+                'android_pct' => $androidPct,
+                'ios_pct' => $iosPct,
+                'other_pct' => $otherPct,
+            ];
+
+            // Health & Reliability Score (0 to 100%)
+            $unresolved = $stats['unresolvedErrors'];
+            $fatal = AppError::where('severity', 'fatal')->count();
+            $penalty = ($unresolved * 5) + ($fatal * 20);
+            $healthScore = max(70, min(100, 100 - $penalty));
+
+            $completionRate = $stats['totalProgress'] > 0 
+                ? round(($stats['completedWatches'] / $stats['totalProgress']) * 100, 1) 
+                : 0;
 
             $recentDevices = Device::orderByDesc('last_active_at')->take(6)->get();
             $recentSyncs = WatchProgress::with('device')->orderByDesc('last_watched_at')->take(6)->get();
@@ -219,21 +306,38 @@ class DashboardController extends Controller
                 'androidDevices' => 0, 'iosDevices' => 0, 'totalProgress' => 0,
                 'completedWatches' => 0, 'totalBookmarks' => 0, 'adImpressions' => 0,
                 'unresolvedErrors' => 0, 'totalErrors' => 0, 'totalCountries' => 0,
-                'totalWatchTime' => '0 min', 'totalDownloads' => 0, 'totalDataTransferred' => '0 MB',
+                'totalWatchTime' => '0 min', 'totalWatchSeconds' => 0, 'totalDownloads' => 0, 'totalDataTransferred' => '0 MB',
             ];
+            $trendLabels = collect(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
+            $trendWatchMins = collect([0, 0, 0, 0, 0, 0, 0]);
+            $trendCheckpoints = collect([0, 0, 0, 0, 0, 0, 0]);
+            $trendDownloads = collect([0, 0, 0, 0, 0, 0, 0]);
+            $platformBreakdown = ['android' => 0, 'ios' => 0, 'other' => 0, 'android_pct' => 0, 'ios_pct' => 0, 'other_pct' => 0];
+            $healthScore = 100;
+            $completionRate = 0;
             $recentDevices = collect();
             $recentSyncs = collect();
+            $recentDownloads = collect();
             $recentErrors = collect();
             $topCountries = collect();
             $mostWatchedMovies = collect();
             $mostWatchedSeries = collect();
             $mostDownloaded = collect();
+            $topEngagedDevices = collect();
         }
 
         $adsEnabled = (bool)AppSetting::get('ads_enabled', true);
+        $downloadsEnabled = (bool)AppSetting::get('feature_downloads_enabled', true);
 
         return view('admin.dashboard', compact(
             'stats',
+            'trendLabels',
+            'trendWatchMins',
+            'trendCheckpoints',
+            'trendDownloads',
+            'platformBreakdown',
+            'healthScore',
+            'completionRate',
             'recentDevices',
             'recentSyncs',
             'recentDownloads',
@@ -243,7 +347,8 @@ class DashboardController extends Controller
             'mostWatchedMovies',
             'mostWatchedSeries',
             'mostDownloaded',
-            'adsEnabled'
+            'adsEnabled',
+            'downloadsEnabled'
         ));
     }
 
@@ -322,7 +427,7 @@ class DashboardController extends Controller
             $device = Device::where('device_id', $deviceId)->firstOrFail();
             $device->update(['username' => trim($validated['username'])]);
             return back()->with('status', "Device renamed to '{$validated['username']}' successfully.");
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             return back()->with('error', "Could not rename device: " . $e->getMessage());
         }
     }
