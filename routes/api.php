@@ -16,17 +16,19 @@ Route::get('/health', function () {
     ]);
 });
 
-Route::prefix('v1')->group(function () {
+// Mobile Client API v1 with Global Rate Limiting (60 requests/min per IP)
+Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
+    
     // Remote Configuration & Live AdMob Switch
     Route::get('/config', [ConfigController::class, 'index']);
 
     // Device Heartbeat & Registration (Active Devices Tracking)
     Route::post('/device/heartbeat', [DeviceController::class, 'heartbeat']);
 
-    // Mobile Guest Token & Authentication
-    Route::post('/auth/guest-token', [AuthController::class, 'guestToken']);
-    Route::post('/auth/register', [AuthController::class, 'register']);
-    Route::post('/auth/login', [AuthController::class, 'login']);
+    // Mobile Guest Token & Authentication (Strict Rate Limiting against Brute-Force)
+    Route::post('/auth/guest-token', [AuthController::class, 'guestToken'])->middleware('throttle:20,1');
+    Route::post('/auth/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
+    Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/auth/user', [AuthController::class, 'me']);
@@ -51,9 +53,9 @@ Route::prefix('v1')->group(function () {
     Route::get('/sync/bookmarks', [SyncController::class, 'getBookmarks']);
     Route::post('/sync/bookmarks', [SyncController::class, 'toggleBookmark']);
 
-    // Ad & Telemetry Analytics
-    Route::post('/telemetry/ad-event', [TelemetryController::class, 'recordAdEvent']);
-    Route::post('/telemetry/error', [TelemetryController::class, 'recordAppError']);
-    Route::post('/telemetry/download', [TelemetryController::class, 'recordDownload']);
-    Route::post('/telemetry/downloads/sync', [TelemetryController::class, 'syncVaultDownloads']);
+    // Ad & Telemetry Analytics (Throttled to prevent flooding)
+    Route::post('/telemetry/ad-event', [TelemetryController::class, 'recordAdEvent'])->middleware('throttle:120,1');
+    Route::post('/telemetry/error', [TelemetryController::class, 'recordAppError'])->middleware('throttle:60,1');
+    Route::post('/telemetry/download', [TelemetryController::class, 'recordDownload'])->middleware('throttle:60,1');
+    Route::post('/telemetry/downloads/sync', [TelemetryController::class, 'syncVaultDownloads'])->middleware('throttle:60,1');
 });

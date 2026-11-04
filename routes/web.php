@@ -12,16 +12,24 @@ Route::get('/', function () {
     return redirect()->route('admin.login');
 })->name('home');
 
-// Admin Routes
+// Admin Portal Routes
 Route::prefix('admin')->group(function () {
+    // Unauthenticated Admin Auth Routes (with strict brute-force rate limiting)
     Route::get('/login', [AdminAuthController::class, 'showLogin'])->name('admin.login');
-    Route::post('/login', [AdminAuthController::class, 'login'])->name('admin.login.submit');
+    Route::post('/login', [AdminAuthController::class, 'login'])
+        ->middleware('throttle:5,1')
+        ->name('admin.login.submit');
     Route::post('/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
 
-    // Protected Admin Pages
-    Route::middleware(['auth'])->group(function () {
+    // Protected Admin Endpoints (Requires valid session AND admin role)
+    Route::middleware(['auth', 'admin'])->group(function () {
         Route::get('/', [DashboardController::class, 'index'])->name('admin.dashboard');
         
+        // Admin Profile Management
+        Route::get('/profile', [DashboardController::class, 'profile'])->name('admin.profile');
+        Route::post('/profile', [DashboardController::class, 'updateProfile'])->name('admin.profile.update');
+        Route::post('/profile/password', [DashboardController::class, 'updatePassword'])->name('admin.profile.password');
+
         // Active Devices Fleet
         Route::get('/devices', [DashboardController::class, 'devices'])->name('admin.devices.index');
         Route::get('/devices/{deviceId}', [DashboardController::class, 'showDevice'])->name('admin.devices.show');

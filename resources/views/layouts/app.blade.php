@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
 <head>
+    <link rel="icon" type="image/png" href="{{ asset('images/favicon.png') }}">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ $title ?? 'MovieCat Admin Console' }}</title>
@@ -40,11 +41,7 @@
                 <!-- Brand Header -->
                 <div class="h-20 px-6 flex items-center justify-between border-b border-white/5">
                     <a href="{{ route('admin.dashboard') }}" class="flex items-center gap-3 group">
-                        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#FF2E4C] to-[#FF6B6B] flex items-center justify-center text-white shadow-lg shadow-[#FF2E4C]/30 group-hover:scale-105 transition-transform">
-                            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
-                            </svg>
-                        </div>
+                        <img src="{{ asset('images/icon.png') }}" alt="MovieCat Official Logo" class="w-10 h-10 rounded-2xl shadow-lg shadow-[#FF2E4C]/30 group-hover:scale-105 transition-transform object-cover" />
                         <div>
                             <div class="flex items-center gap-1.5">
                                 <span class="text-lg font-extrabold tracking-tight text-white">MovieCat</span>
@@ -69,6 +66,14 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
                         </svg>
                         <span>Dashboard Overview</span>
+                    </a>
+
+                    <!-- 7. Administrator Profile -->
+                    <a href="{{ route('admin.profile') }}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/[0.04] transition-all {{ request()->routeIs('admin.profile*') ? 'nav-active' : '' }}">
+                        <svg class="w-4 h-4 {{ request()->routeIs('admin.profile*') ? 'text-[#FF2E4C]' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                        </svg>
+                        <span>Admin Profile</span>
                     </a>
 
                     <!-- 2. Active Devices Fleet -->
@@ -158,15 +163,18 @@
 
             <!-- USER PROFILE & LOGOUT -->
             <div class="p-4 border-t border-white/5 space-y-3 bg-[#0C0E14]">
-                <div class="flex items-center justify-between">
+                <a href="{{ route('admin.profile') }}" class="flex items-center justify-between p-2 rounded-xl hover:bg-white/5 transition-all group" title="Manage Administrator Profile">
                     <div class="flex items-center gap-2.5">
-                        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-slate-700 to-slate-600 flex items-center justify-center text-white font-bold text-xs shadow">
+                        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#FF2E4C] to-[#FF6B6B] flex items-center justify-center text-white font-bold text-xs shadow-md shadow-[#FF2E4C]/20 group-hover:scale-105 transition-transform">
                             {{ substr(Auth::user()->name ?? 'Admin', 0, 1) }}
                         </div>
                         <div class="overflow-hidden">
-                            <div class="text-xs font-bold text-white truncate">{{ Auth::user()->name ?? 'Administrator' }}</div>
+                            <div class="text-xs font-bold text-white group-hover:text-rose-400 transition-colors truncate">{{ Auth::user()->name ?? 'Administrator' }}</div>
                             <div class="text-[10px] text-slate-400 font-mono truncate">{{ Auth::user()->email ?? 'admin@moviecat.app' }}</div>
                         </div>
+                    </div>
+                    <svg class="w-4 h-4 text-slate-500 group-hover:text-slate-300 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </a>
                     </div>
                 </div>
 

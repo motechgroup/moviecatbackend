@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
+    <link rel="icon" type="image/png" href="{{ asset('images/favicon.png') }}">
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Admin Login • MovieCat</title>
@@ -24,11 +25,7 @@
     <div class="w-full max-w-md relative z-10">
         <!-- Logo Header -->
         <div class="text-center mb-8 space-y-3">
-            <div class="inline-flex w-14 h-14 rounded-2xl bg-gradient-to-tr from-[#FF2E4C] to-[#FF6B6B] items-center justify-center text-white shadow-xl shadow-[#FF2E4C]/30">
-                <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
-                </svg>
-            </div>
+            <img src="{{ asset('images/icon.png') }}" alt="MovieCat Official Logo" class="w-16 h-16 mx-auto rounded-3xl shadow-2xl shadow-[#FF2E4C]/40 hover:scale-105 transition-transform object-cover border border-white/10" />
             <h1 class="text-3xl font-extrabold tracking-tight text-white">MovieCat Admin</h1>
             <p class="text-xs text-slate-400">Restricted Administration & Control Portal</p>
         </div>

@@ -978,4 +978,53 @@ class DashboardController extends Controller
 
         return back()->with('success', 'Remote application settings updated successfully!');
     }
+
+    // 8. Administrator Profile Management
+    public function profile(Request $request): View
+    {
+        $user = Auth::user();
+        $sessionInfo = [
+            'ip' => $request->ip(),
+            'userAgent' => $request->header('User-Agent'),
+            'lastActive' => now()->format('M d, Y H:i:s T'),
+        ];
+
+        return view('admin.profile', compact('user', 'sessionInfo'));
+    }
+
+    public function updateProfile(Request $request): RedirectResponse
+    {
+        $user = Auth::user();
+
+        $data = $request->validate([
+            'name' => 'required|string|max:100',
+            'email' => 'required|email|max:150|unique:users,email,' . $user->id,
+        ]);
+
+        $user->update($data);
+
+        return back()->with('success', 'Profile information updated successfully!');
+    }
+
+    public function updatePassword(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'current_password' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        $user = Auth::user();
+
+        if (!\Illuminate\Support\Facades\Hash::check($request->current_password, $user->password)) {
+            return back()->withErrors([
+                'current_password' => 'The provided current password does not match your account password.',
+            ]);
+        }
+
+        $user->update([
+            'password' => \Illuminate\Support\Facades\Hash::make($request->password),
+        ]);
+
+        return back()->with('success', 'Password successfully updated! Your account is secure.');
+    }
 }
