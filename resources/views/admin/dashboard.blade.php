@@ -16,12 +16,11 @@
                 <span>Executive Telemetry & Metrics</span>
             </h1>
             <p class="text-xs sm:text-sm text-slate-400 max-w-2xl">
-                Global user fleet telemetry, active devices, total watch time, offline downloads, ad delivery, and client health monitoring.
+                Global user fleet telemetry, active devices, total watch time, offline vault downloads, ad delivery, and client health monitoring.
             </p>
         </div>
 
         <div class="flex flex-wrap items-center gap-3 relative z-10">
-            <!-- Wipe Mock Data Button -->
             <form action="{{ route('admin.wipe-mock') }}" method="POST" onsubmit="return confirm('Wipe all mock/test devices and history from the database? Real incoming devices will start recording cleanly.');">
                 @csrf
                 <button type="submit" class="px-3.5 py-2 rounded-xl bg-white/5 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 border border-white/10 hover:border-rose-500/30 text-xs font-bold transition-all flex items-center gap-1.5">
@@ -58,9 +57,9 @@
 
         <!-- Total Downloads -->
         <div class="p-5 rounded-2xl glass-panel relative overflow-hidden group">
-            <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Offline Downloads</div>
+            <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Vault Downloads</div>
             <div class="text-2xl sm:text-3xl font-extrabold text-orange-400 mt-1">{{ number_format($stats['totalDownloads']) }}</div>
-            <div class="text-[11px] text-slate-400 mt-1">{{ $stats['totalDataTransferred'] }} offline storage</div>
+            <div class="text-[11px] text-slate-400 mt-1">{{ $stats['totalDataTransferred'] }} offline storage saved</div>
         </div>
 
         <!-- Countries & Reach -->
@@ -118,81 +117,116 @@
         </div>
     </div>
 
-    <!-- MOST WATCHED & MOST DOWNLOADED LEADERBOARDS (2 Columns) -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Most Watched Content -->
+    <!-- LEADERBOARDS: MOST STREAMED & MOST DOWNLOADED (3 Columns) -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Most Streamed Movies -->
         <div class="p-6 rounded-3xl glass-panel space-y-4">
             <div class="flex items-center justify-between">
                 <h3 class="text-base font-bold text-white flex items-center gap-2">
-                    <span class="text-lg">📺</span>
-                    <span>Most Watched Content</span>
+                    <span class="text-lg">🎬</span>
+                    <span>Most Streamed Movies</span>
                 </h3>
-                <span class="text-[10px] font-mono text-slate-400 uppercase tracking-wider">Live Telemetry</span>
+                <span class="text-[10px] font-mono text-purple-400 uppercase tracking-wider">Top Watched</span>
             </div>
 
             <div class="space-y-3">
-                @forelse($mostWatchedMovies->merge($mostWatchedSeries)->take(5) as $idx => $item)
+                @forelse($mostWatchedMovies as $idx => $item)
                     <div class="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] transition-all">
                         <div class="flex items-center gap-3">
-                            <span class="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-white">#{{ $idx + 1 }}</span>
+                            <span class="w-6 h-6 rounded-full bg-purple-500/20 text-purple-300 flex items-center justify-center text-xs font-bold">#{{ $idx + 1 }}</span>
                             @if($item->poster)
                                 <img src="{{ $item->poster }}" class="w-9 h-12 rounded-lg object-cover bg-slate-800" alt="{{ $item->title }}" />
                             @else
                                 <div class="w-9 h-12 rounded-lg bg-slate-800 flex items-center justify-center text-[10px] text-slate-400">N/A</div>
                             @endif
                             <div class="overflow-hidden">
-                                <div class="text-xs font-bold text-white truncate max-w-[180px] sm:max-w-xs">{{ $item->title }}</div>
-                                <div class="text-[10px] text-purple-400 font-mono">{{ $item->formatted_time }} total watch time</div>
+                                <div class="text-xs font-bold text-white truncate max-w-[130px] sm:max-w-[160px]">{{ $item->title }}</div>
+                                <div class="text-[10px] text-purple-400 font-mono">{{ $item->formatted_time }} streamed</div>
                             </div>
                         </div>
-                        <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-purple-500/15 text-purple-400 border border-purple-500/20">
-                            {{ $item->count }} sessions
+                        <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-500/15 text-purple-400 border border-purple-500/20">
+                            {{ $item->count }} views
                         </span>
                     </div>
                 @empty
-                    <div class="py-8 text-center text-xs text-slate-400">No playback sessions recorded yet.</div>
+                    <div class="py-8 text-center text-xs text-slate-400">No movie streams recorded yet.</div>
                 @endforelse
             </div>
         </div>
 
-        <!-- Most Downloaded Media -->
+        <!-- Most Streamed TV Shows -->
+        <div class="p-6 rounded-3xl glass-panel space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <span class="text-lg">📺</span>
+                    <span>Most Streamed Series</span>
+                </h3>
+                <span class="text-[10px] font-mono text-sky-400 uppercase tracking-wider">Top Watched</span>
+            </div>
+
+            <div class="space-y-3">
+                @forelse($mostWatchedSeries as $idx => $item)
+                    <div class="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] transition-all">
+                        <div class="flex items-center gap-3">
+                            <span class="w-6 h-6 rounded-full bg-sky-500/20 text-sky-300 flex items-center justify-center text-xs font-bold">#{{ $idx + 1 }}</span>
+                            @if($item->poster)
+                                <img src="{{ $item->poster }}" class="w-9 h-12 rounded-lg object-cover bg-slate-800" alt="{{ $item->title }}" />
+                            @else
+                                <div class="w-9 h-12 rounded-lg bg-slate-800 flex items-center justify-center text-[10px] text-slate-400">N/A</div>
+                            @endif
+                            <div class="overflow-hidden">
+                                <div class="text-xs font-bold text-white truncate max-w-[130px] sm:max-w-[160px]">{{ $item->title }}</div>
+                                <div class="text-[10px] text-sky-400 font-mono">{{ $item->formatted_time }} streamed</div>
+                            </div>
+                        </div>
+                        <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-sky-500/15 text-sky-400 border border-sky-500/20">
+                            {{ $item->count }} views
+                        </span>
+                    </div>
+                @empty
+                    <div class="py-8 text-center text-xs text-slate-400">No series streams recorded yet.</div>
+                @endforelse
+            </div>
+        </div>
+
+        <!-- Most Downloaded Media Across Vaults -->
         <div class="p-6 rounded-3xl glass-panel space-y-4">
             <div class="flex items-center justify-between">
                 <h3 class="text-base font-bold text-white flex items-center gap-2">
                     <span class="text-lg">💾</span>
-                    <span>Most Downloaded for Offline</span>
+                    <span>Most Downloaded in Vaults</span>
                 </h3>
-                <a href="{{ route('admin.downloads.index') }}" class="text-xs text-orange-400 hover:text-orange-300 font-semibold">View All Downloads →</a>
+                <a href="{{ route('admin.downloads.index') }}" class="text-xs text-orange-400 hover:text-orange-300 font-semibold">View All →</a>
             </div>
 
             <div class="space-y-3">
                 @forelse($mostDownloaded as $idx => $item)
                     <div class="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] transition-all">
                         <div class="flex items-center gap-3">
-                            <span class="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-white">#{{ $idx + 1 }}</span>
+                            <span class="w-6 h-6 rounded-full bg-orange-500/20 text-orange-300 flex items-center justify-center text-xs font-bold">#{{ $idx + 1 }}</span>
                             @if($item->poster)
                                 <img src="{{ $item->poster }}" class="w-9 h-12 rounded-lg object-cover bg-slate-800" alt="{{ $item->title }}" />
                             @else
                                 <div class="w-9 h-12 rounded-lg bg-slate-800 flex items-center justify-center text-[10px] text-slate-400">N/A</div>
                             @endif
                             <div class="overflow-hidden">
-                                <div class="text-xs font-bold text-white truncate max-w-[180px] sm:max-w-xs">{{ $item->title }}</div>
-                                <div class="text-[10px] text-orange-400 font-mono">{{ $item->formatted_size }} saved offline</div>
+                                <div class="text-xs font-bold text-white truncate max-w-[130px] sm:max-w-[160px]">{{ $item->title }}</div>
+                                <div class="text-[10px] text-orange-400 font-mono">{{ $item->formatted_size }} offline</div>
                             </div>
                         </div>
-                        <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-orange-500/15 text-orange-400 border border-orange-500/20">
-                            {{ $item->count }} downloads
+                        <span class="px-2 py-0.5 rounded-full text-[11px] font-bold bg-orange-500/15 text-orange-400 border border-orange-500/20">
+                            {{ $item->count }} saved
                         </span>
                     </div>
                 @empty
-                    <div class="py-8 text-center text-xs text-slate-400">No offline downloads recorded yet.</div>
+                    <div class="py-8 text-center text-xs text-slate-400">No offline vault media recorded yet.</div>
                 @endforelse
             </div>
         </div>
     </div>
 
-    <!-- RECENT DEVICES & PLAYBACK STREAM -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <!-- RECENT ACTIVITY STREAMS (3 Columns) -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <!-- Recently Active Devices -->
         <div class="p-6 rounded-3xl glass-panel space-y-4">
             <div class="flex items-center justify-between">
@@ -205,7 +239,7 @@
 
             <div class="space-y-3">
                 @forelse($recentDevices as $device)
-                    <a href="{{ route('admin.devices.show', $device->device_id) }}" class="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] transition-all group">
+                    <a href="{{ route('admin.devices.show', $device->device_id) }}" class="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.05] transition-all group">
                         <div class="flex items-center gap-3">
                             <span class="text-xl">{{ $device->country_flag }}</span>
                             <div>
@@ -225,26 +259,26 @@
             </div>
         </div>
 
-        <!-- Recent Watch Progress -->
+        <!-- Live Streams Checkpoint Stream -->
         <div class="p-6 rounded-3xl glass-panel space-y-4">
             <div class="flex items-center justify-between">
                 <h3 class="text-base font-bold text-white flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full bg-purple-400"></span>
-                    <span>Live Playback Stream</span>
+                    <span>Live Playback Streams</span>
                 </h3>
                 <a href="{{ route('admin.sync.index') }}" class="text-xs text-purple-400 hover:text-purple-300 font-semibold">View All →</a>
             </div>
 
             <div class="space-y-3">
                 @forelse($recentSyncs as $item)
-                    <div class="flex items-center justify-between p-3.5 rounded-2xl bg-white/[0.02] border border-white/5">
+                    <div class="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] border border-white/5">
                         <div class="flex items-center gap-3">
                             @if($item->poster)
                                 <img src="{{ $item->poster }}" class="w-8 h-10 rounded object-cover bg-slate-800" alt="{{ $item->title }}" />
                             @endif
-                            <div>
-                                <div class="text-xs font-bold text-white truncate max-w-[200px]">{{ $item->title }}</div>
-                                <div class="text-[10px] text-slate-400">{{ $item->device->username ?? 'Guest' }}</div>
+                            <div class="overflow-hidden">
+                                <div class="text-xs font-bold text-white truncate max-w-[140px]">{{ $item->title }}</div>
+                                <div class="text-[10px] text-slate-400">{{ $item->device->display_name ?? 'Guest User' }}</div>
                             </div>
                         </div>
                         <div class="text-right">
@@ -255,6 +289,40 @@
                     </div>
                 @empty
                     <div class="py-8 text-center text-xs text-slate-400">No playback activity yet.</div>
+                @endforelse
+            </div>
+        </div>
+
+        <!-- Live Vault Downloads Stream -->
+        <div class="p-6 rounded-3xl glass-panel space-y-4">
+            <div class="flex items-center justify-between">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-orange-400"></span>
+                    <span>Live Vault Downloads</span>
+                </h3>
+                <a href="{{ route('admin.downloads.index') }}" class="text-xs text-orange-400 hover:text-orange-300 font-semibold">View Vaults →</a>
+            </div>
+
+            <div class="space-y-3">
+                @forelse($recentDownloads as $dl)
+                    <div class="flex items-center justify-between p-3 rounded-2xl bg-white/[0.02] border border-white/5">
+                        <div class="flex items-center gap-3">
+                            @if($dl->poster)
+                                <img src="{{ $dl->poster }}" class="w-8 h-10 rounded object-cover bg-slate-800" alt="{{ $dl->title }}" />
+                            @endif
+                            <div class="overflow-hidden">
+                                <div class="text-xs font-bold text-white truncate max-w-[140px]">{{ $dl->title }}</div>
+                                <div class="text-[10px] text-slate-400">{{ $dl->device->display_name ?? 'Guest User' }} • {{ $dl->quality }}</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-orange-500/15 text-orange-400 border border-orange-500/20">
+                                {{ number_format($dl->file_size_bytes / (1024 * 1024), 1) }} MB
+                            </span>
+                        </div>
+                    </div>
+                @empty
+                    <div class="py-8 text-center text-xs text-slate-400">No downloads saved in vaults yet.</div>
                 @endforelse
             </div>
         </div>

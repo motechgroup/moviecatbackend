@@ -107,6 +107,79 @@ class TelemetryController extends Controller
         ], 201);
     }
 
+        public function syncVaultDownloads(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'device_id' => 'required|string|max:128',
+            'downloads' => 'required|array',
+            'downloads.*.media_id' => 'required|string|max:64',
+            'downloads.*.media_type' => 'nullable|string|in:movie,tv',
+            'downloads.*.title' => 'required|string|max:255',
+            'downloads.*.poster' => 'nullable|string',
+            'downloads.*.season' => 'nullable|integer',
+            'downloads.*.episode' => 'nullable|integer',
+            'downloads.*.file_size_bytes' => 'nullable|integer',
+            'downloads.*.quality' => 'nullable|string|max:32',
+            'downloads.*.status' => 'nullable|string|max:32',
+        ]);
+
+        $deviceId = $validated['device_id'];
+
+        try {
+            $device = Device::where('device_id', $deviceId)->first();
+            if ($device) {
+                $device->update(['last_active_at' => now()]);
+            } else {
+                $cfCountry = strtoupper(trim((string)$request->header('CF-IPCountry')));
+                $countryCode = (strlen($cfCountry) === 2 && $cfCountry !== 'XX') ? $cfCountry : 'KE';
+                Device::create([
+                    'device_id' => $deviceId,
+                    'username' => 'MovieCat #' . strtoupper(substr(md5($deviceId), 0, 4)),
+                    'platform' => $request->header('X-Platform', 'android'),
+                    'device_name' => 'Mobile Device',
+                    'app_version' => '1.0.0',
+                    'ip_address' => $request->ip(),
+                    'country' => 'Kenya',
+                    'country_code' => $countryCode,
+                    'last_active_at' => now(),
+                    'sessions_count' => 1,
+                ]);
+            }
+
+            $syncedCount = 0;
+            foreach ($validated['downloads'] as $item) {
+                DownloadEvent::updateOrCreate(
+                    [
+                        'device_id' => $deviceId,
+                        'media_id' => $item['media_id'],
+                        'season' => $item['season'] ?? null,
+                        'episode' => $item['episode'] ?? null,
+                    ],
+                    [
+                        'media_type' => $item['media_type'] ?? 'movie',
+                        'title' => $item['title'],
+                        'poster' => $item['poster'] ?? null,
+                        'file_size_bytes' => $item['file_size_bytes'] ?? 0,
+                        'quality' => $item['quality'] ?? '1080p',
+                        'status' => $item['status'] ?? 'completed',
+                        'created_at' => now(),
+                    ]
+                );
+                $syncedCount++;
+            }
+
+            return response()->json([
+                'success' => true,
+                'synced' => $syncedCount,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
     public function recordDownload(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -122,24 +195,50 @@ class TelemetryController extends Controller
             'status' => 'nullable|string|max:32',
         ]);
 
+        $deviceId = $validated['device_id'];
+
         try {
-            $event = DownloadEvent::create([
-                'device_id' => $validated['device_id'],
-                'media_id' => $validated['media_id'],
-                'media_type' => $validated['media_type'] ?? 'movie',
-                'title' => $validated['title'],
-                'poster' => $validated['poster'] ?? null,
-                'season' => $validated['season'] ?? null,
-                'episode' => $validated['episode'] ?? null,
-                'file_size_bytes' => $validated['file_size_bytes'] ?? 0,
-                'quality' => $validated['quality'] ?? '1080p',
-                'status' => $validated['status'] ?? 'completed',
-            ]);
+            $device = Device::where('device_id', $deviceId)->first();
+            if ($device) {
+                $device->update(['last_active_at' => now()]);
+            } else {
+                $cfCountry = strtoupper(trim((string)$request->header('CF-IPCountry')));
+                $countryCode = (strlen($cfCountry) === 2 && $cfCountry !== 'XX') ? $cfCountry : 'KE';
+                Device::create([
+                    'device_id' => $deviceId,
+                    'username' => 'MovieCat #' . strtoupper(substr(md5($deviceId), 0, 4)),
+                    'platform' => $request->header('X-Platform', 'android'),
+                    'device_name' => 'Mobile Device',
+                    'app_version' => '1.0.0',
+                    'ip_address' => $request->ip(),
+                    'country' => 'Kenya',
+                    'country_code' => $countryCode,
+                    'last_active_at' => now(),
+                    'sessions_count' => 1,
+                ]);
+            }
+
+            $event = DownloadEvent::updateOrCreate(
+                [
+                    'device_id' => $deviceId,
+                    'media_id' => $validated['media_id'],
+                    'season' => $validated['season'] ?? null,
+                    'episode' => $validated['episode'] ?? null,
+                ],
+                [
+                    'media_type' => $validated['media_type'] ?? 'movie',
+                    'title' => $validated['title'],
+                    'poster' => $validated['poster'] ?? null,
+                    'file_size_bytes' => $validated['file_size_bytes'] ?? 0,
+                    'quality' => $validated['quality'] ?? '1080p',
+                    'status' => $validated['status'] ?? 'completed',
+                    'created_at' => now(),
+                ]
+            );
 
             return response()->json(['success' => true, 'id' => $event->id]);
         } catch (\Throwable $e) {
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
-
 }

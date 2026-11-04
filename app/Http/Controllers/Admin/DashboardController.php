@@ -143,42 +143,75 @@ class DashboardController extends Controller
                     return $c;
                 });
 
-            // Most Watched Movies & TV Shows
-            $mostWatchedMovies = WatchProgress::select('title', 'poster', 'media_id', DB::raw('count(*) as count'), DB::raw('sum(current_time) as total_seconds'))
+            // Most Watched Movies & TV Shows (Compatible with all SQL group-by modes)
+            $mostWatchedMovies = WatchProgress::select(
+                    'media_id',
+                    DB::raw('MAX(title) as title'),
+                    DB::raw('MAX(poster) as poster'),
+                    DB::raw('count(*) as count'),
+                    DB::raw('sum(current_time) as total_seconds')
+                )
                 ->where('media_type', 'movie')
-                ->groupBy('title', 'poster', 'media_id')
+                ->groupBy('media_id')
                 ->orderByDesc('count')
-                ->take(5)
+                ->take(6)
                 ->get()
                 ->map(function ($item) {
                     $item->formatted_time = $this->formatSeconds((int)$item->total_seconds);
                     return $item;
                 });
 
-            $mostWatchedSeries = WatchProgress::select('title', 'poster', 'media_id', DB::raw('count(*) as count'), DB::raw('sum(current_time) as total_seconds'))
+            $mostWatchedSeries = WatchProgress::select(
+                    'media_id',
+                    DB::raw('MAX(title) as title'),
+                    DB::raw('MAX(poster) as poster'),
+                    DB::raw('count(*) as count'),
+                    DB::raw('sum(current_time) as total_seconds')
+                )
                 ->where('media_type', 'tv')
-                ->groupBy('title', 'poster', 'media_id')
+                ->groupBy('media_id')
                 ->orderByDesc('count')
-                ->take(5)
+                ->take(6)
                 ->get()
                 ->map(function ($item) {
                     $item->formatted_time = $this->formatSeconds((int)$item->total_seconds);
                     return $item;
                 });
 
-            // Most Downloaded Media
+            // Most Downloaded Media Across All Users' Vaults
             $mostDownloaded = Schema::hasTable('download_events')
-                ? DownloadEvent::select('title', 'poster', 'media_id', 'media_type', DB::raw('count(*) as count'), DB::raw('sum(file_size_bytes) as total_bytes'))
+                ? DownloadEvent::select(
+                        'media_id',
+                        DB::raw('MAX(title) as title'),
+                        DB::raw('MAX(poster) as poster'),
+                        DB::raw('MAX(media_type) as media_type'),
+                        DB::raw('count(*) as count'),
+                        DB::raw('sum(file_size_bytes) as total_bytes')
+                    )
                     ->where('status', 'completed')
-                    ->groupBy('title', 'poster', 'media_id', 'media_type')
+                    ->groupBy('media_id')
                     ->orderByDesc('count')
-                    ->take(5)
+                    ->take(6)
                     ->get()
                     ->map(function ($item) {
                         $item->formatted_size = $this->formatBytes((int)$item->total_bytes);
                         return $item;
                     })
                 : collect();
+
+            // Recent Offline Vault Downloads Stream
+            $recentDownloads = Schema::hasTable('download_events')
+                ? DownloadEvent::with('device')->where('status', 'completed')->orderByDesc('created_at')->take(6)->get()
+                : collect();
+
+            // Top Engaged Devices Fleet by Total Watch Time
+            $topEngagedDevices = Device::orderByDesc('total_watch_seconds')
+                ->take(5)
+                ->get()
+                ->map(function ($dev) {
+                    $dev->formatted_watch = $this->formatSeconds((int)$dev->total_watch_seconds);
+                    return $dev;
+                });
 
         } catch (Throwable) {
             $stats = [
@@ -203,6 +236,8 @@ class DashboardController extends Controller
             'stats',
             'recentDevices',
             'recentSyncs',
+            'recentDownloads',
+            'topEngagedDevices',
             'recentErrors',
             'topCountries',
             'mostWatchedMovies',
