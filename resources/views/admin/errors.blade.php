@@ -1,30 +1,12 @@
 @extends('layouts.app', ['title' => 'App Error Telemetry & Debug Logs'])
 
 @section('content')
-<div class="space-y-6 max-w-7xl mx-auto" x-data="{ 
-    activeModal: null,
-    copiedToast: false,
-    toastMessage: '',
-    copyToClipboard(text, msg = 'Copied to clipboard!') {
-        navigator.clipboard.writeText(text).then(() => {
-            this.toastMessage = msg;
-            this.copiedToast = true;
-            setTimeout(() => this.copiedToast = false, 3000);
-        });
-    }
-}">
-    <!-- Toast Notification -->
-    <div x-show="copiedToast" 
-         x-transition:enter="transition ease-out duration-300"
-         x-transition:enter-start="opacity-0 transform translate-y-2"
-         x-transition:enter-end="opacity-100 transform translate-y-0"
-         x-transition:leave="transition ease-in duration-200"
-         x-transition:leave-start="opacity-100 transform translate-y-0"
-         x-transition:leave-end="opacity-0 transform translate-y-2"
-         class="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-emerald-500/90 text-white font-bold text-xs shadow-2xl backdrop-blur-md border border-emerald-400/30"
-         style="display: none;">
+<div class="space-y-6 max-w-7xl mx-auto">
+    <!-- Global Toast Notification -->
+    <div id="globalToast" 
+         class="hidden fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-emerald-500 text-white font-bold text-xs shadow-2xl backdrop-blur-md border border-emerald-400/30 transition-all duration-300">
         <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-        <span x-text="toastMessage"></span>
+        <span id="globalToastMessage">Copied to clipboard!</span>
     </div>
 
     <!-- Header & Action Bar -->
@@ -37,24 +19,24 @@
                 Mobile App Error Telemetry & Debug Center
             </h1>
             <p class="text-xs text-slate-400 mt-1">
-                Real-time error logs and stack traces captured from client devices. Export structured reports directly to debug issues with developers or AI assistants.
+                Real-time error logs and stack traces captured from client devices. Inspect full diagnostics and export structured debug reports directly for AI or developers.
             </p>
         </div>
 
         <div class="flex items-center flex-wrap gap-2.5">
             <!-- Export Dropdown -->
-            <div class="relative" x-data="{ open: false }">
-                <button @click="open = !open" 
+            <div class="relative">
+                <button type="button" 
+                        id="exportDropdownBtn"
+                        onclick="toggleExportDropdown()" 
                         class="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-rose-600 hover:from-rose-600 hover:to-rose-700 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-rose-500/25 transition-all">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                     </svg>
                     Export Errors &rarr;
                 </button>
-                <div x-show="open" 
-                     @click.away="open = false" 
-                     class="absolute right-0 mt-2 w-64 glass-panel rounded-2xl border border-white/10 shadow-2xl p-2 z-50 space-y-1"
-                     style="display: none;">
+                <div id="exportDropdownMenu" 
+                     class="hidden absolute right-0 mt-2 w-64 glass-panel rounded-2xl border border-white/10 shadow-2xl p-2 z-50 space-y-1">
                     <div class="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">Export Filtered Data</div>
                     <a href="{{ route('admin.errors.export', array_merge(request()->query(), ['format' => 'markdown'])) }}" 
                        class="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs text-slate-200 hover:text-white hover:bg-white/10 transition-colors">
@@ -204,7 +186,7 @@
                         @php
                             $dev = $error->device;
                             $devId = $error->device_id ?: 'Unknown';
-                            $devUser = $dev?->display_name ?: ('Device #' . substr(md5($devId), 0, 4));
+                            $devUser = $dev?->display_name ?: ('MovieCat #' . strtoupper(substr(md5($devId), 0, 4)));
                             $platform = strtoupper($error->platform ?: ($dev?->platform ?? 'ANDROID'));
                             $os = $dev?->os_version ?: 'OS';
                             $appVer = $error->app_version ?: ($dev?->app_version ?? '1.0.0');
@@ -213,18 +195,40 @@
                             $ip = $dev?->ip_address ?: '127.0.0.1';
                             $timeStr = $error->created_at ? $error->created_at->format('M d, Y H:i:s') : 'Unknown';
 
-                            // Formatted AI prompt for 1-click clipboard copy
-                            $promptText = "I need help fixing this MovieCat app issue:\n" .
+                            $promptText = "I need help debugging and fixing this MovieCat mobile app error:\n" .
                                 "- Severity: " . strtoupper($error->severity) . "\n" .
                                 "- Screen: " . ($error->screen ?: 'global') . "\n" .
                                 "- Error Message: " . $error->error_message . "\n" .
                                 "- Device: " . $devId . " (" . $devUser . ")\n" .
-                                "- OS & Platform: " . $platform . " " . $os . "\n" .
+                                "- Platform & OS: " . $platform . " " . $os . "\n" .
                                 "- App Version: " . $appVer . "\n" .
-                                (!empty($error->stack_trace) ? "- Stack Trace:\n" . $error->stack_trace : "");
-                            $promptJson = json_encode($promptText);
+                                "- Location: " . $country . "\n" .
+                                (!empty($error->stack_trace) ? "- Stack Trace:\n" . $error->stack_trace . "\n" : "") .
+                                (!empty($error->metadata) ? "- Metadata: " . json_encode($error->metadata) : "");
+
+                            $errorJsonData = [
+                                'id' => $error->id,
+                                'severity' => strtoupper($error->severity),
+                                'screen' => $error->screen ?: 'global',
+                                'error_type' => $error->error_type,
+                                'error_message' => $error->error_message,
+                                'device_id' => $devId,
+                                'username' => $devUser,
+                                'platform' => $platform,
+                                'os' => $os,
+                                'app_version' => $appVer,
+                                'country' => $country,
+                                'country_flag' => $countryFlag,
+                                'ip' => $ip,
+                                'time' => $timeStr,
+                                'resolved' => (bool)$error->resolved,
+                                'stack_trace' => $error->stack_trace,
+                                'metadata' => $error->metadata,
+                                'prompt' => $promptText,
+                                'resolve_url' => route('admin.errors.resolve', $error->id),
+                            ];
                         @endphp
-                        <tr class="hover:bg-white/[0.02] transition-colors">
+                        <tr class="hover:bg-white/[0.02] transition-colors" id="error-row-{{ $error->id }}">
                             <!-- Severity & Screen -->
                             <td class="py-4 align-top">
                                 <div class="flex flex-col gap-1.5 items-start">
@@ -316,17 +320,17 @@
 
                             <!-- Actions -->
                             <td class="py-4 align-top text-right space-x-1.5 whitespace-nowrap">
-                                <!-- Inspect Modal Trigger -->
+                                <!-- Inspect Button (Native Vanilla JS) -->
                                 <button type="button" 
-                                        @click="activeModal = {{ $error->id }}"
-                                        class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[11px] font-bold transition-colors inline-flex items-center gap-1">
+                                        onclick="openInspectModal({{ json_encode($errorJsonData) }})"
+                                        class="px-2.5 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 text-[11px] font-bold transition-all inline-flex items-center gap-1">
                                     <svg class="w-3 h-3 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                     Inspect
                                 </button>
 
                                 <!-- 1-Click Copy AI Prompt -->
                                 <button type="button" 
-                                        @click="copyToClipboard({{ $promptJson }}, 'Copied debug prompt for AI!')"
+                                        onclick="copyToClipboard({{ json_encode($promptText) }}, 'Copied debug prompt for AI!')"
                                         title="Copy formatted prompt for AI assistant (Claude/GPT/Gemini)"
                                         class="p-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 transition-colors inline-flex items-center">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
@@ -349,110 +353,6 @@
                                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                     </button>
                                 </form>
-
-                                <!-- Full Detail Modal -->
-                                <div x-show="activeModal === {{ $error->id }}" 
-                                     class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 text-left"
-                                     style="display: none;">
-                                    <div class="glass-panel p-6 sm:p-8 rounded-3xl max-w-3xl w-full border border-white/10 shadow-2xl max-h-[90vh] overflow-y-auto space-y-6"
-                                         @click.away="activeModal = null">
-                                        
-                                        <!-- Modal Header -->
-                                        <div class="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
-                                            <div>
-                                                <div class="flex items-center gap-2 flex-wrap">
-                                                    @if($error->severity === 'fatal')
-                                                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/40">FATAL CRASH</span>
-                                                    @elseif($error->severity === 'error')
-                                                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40">ERROR</span>
-                                                    @else
-                                                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-yellow-500/20 text-yellow-300">WARNING</span>
-                                                    @endif
-                                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-white/10 text-slate-300">Screen: {{ $error->screen ?: 'global' }}</span>
-                                                    <span class="text-xs text-slate-400 font-mono">Issue #{{ $error->id }}</span>
-                                                </div>
-                                                <h3 class="text-xl font-bold text-white mt-2 break-words">{{ $error->error_message }}</h3>
-                                            </div>
-                                            <button type="button" @click="activeModal = null" class="text-slate-400 hover:text-white text-2xl font-bold">&times;</button>
-                                        </div>
-
-                                        <!-- Device & Environment Card -->
-                                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 text-xs">
-                                            <div>
-                                                <div class="text-[10px] text-slate-400 uppercase font-semibold">User & Device ID</div>
-                                                <div class="font-bold text-white mt-0.5 truncate">{{ $devUser }}</div>
-                                                <div class="font-mono text-[10px] text-slate-500 truncate">{{ $devId }}</div>
-                                            </div>
-                                            <div>
-                                                <div class="text-[10px] text-slate-400 uppercase font-semibold">Platform & OS</div>
-                                                <div class="font-bold text-slate-200 mt-0.5 uppercase">{{ $platform }}</div>
-                                                <div class="text-[10px] text-slate-400 truncate">{{ $os }}</div>
-                                            </div>
-                                            <div>
-                                                <div class="text-[10px] text-slate-400 uppercase font-semibold">App Version & IP</div>
-                                                <div class="font-bold text-slate-200 mt-0.5">v{{ $appVer }}</div>
-                                                <div class="font-mono text-[10px] text-slate-400 truncate">{{ $ip }}</div>
-                                            </div>
-                                            <div>
-                                                <div class="text-[10px] text-slate-400 uppercase font-semibold">Reported Location</div>
-                                                <div class="font-bold text-white mt-0.5 flex items-center gap-1">
-                                                    <span>{{ $countryFlag }}</span>
-                                                    <span>{{ $country }}</span>
-                                                </div>
-                                                <div class="text-[10px] text-slate-400">{{ $timeStr }}</div>
-                                            </div>
-                                        </div>
-
-                                        <!-- Stack Trace Box -->
-                                        @if($error->stack_trace)
-                                            <div>
-                                                <div class="flex items-center justify-between mb-2">
-                                                    <div class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                                                        <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
-                                                        Stack Trace
-                                                    </div>
-                                                    <button type="button" 
-                                                            @click="copyToClipboard({{ json_encode($error->stack_trace) }}, 'Stack trace copied!')"
-                                                            class="text-[11px] font-semibold text-sky-400 hover:text-sky-300 flex items-center gap-1">
-                                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
-                                                        Copy Trace
-                                                    </button>
-                                                </div>
-                                                <pre class="p-4 rounded-2xl bg-[#0B0C10] border border-white/10 text-emerald-400 font-mono text-[11px] overflow-x-auto max-h-60 whitespace-pre-wrap leading-relaxed">{{ $error->stack_trace }}</pre>
-                                            </div>
-                                        @endif
-
-                                        <!-- Metadata Context -->
-                                        @if($error->metadata)
-                                            <div>
-                                                <div class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2">Context Metadata</div>
-                                                <pre class="p-4 rounded-2xl bg-[#0B0C10] border border-white/10 text-amber-300 font-mono text-[11px] overflow-x-auto max-h-40 whitespace-pre-wrap">{{ is_array($error->metadata) ? json_encode($error->metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) : $error->metadata }}</pre>
-                                            </div>
-                                        @endif
-
-                                        <!-- Modal Actions Footer -->
-                                        <div class="flex items-center justify-between gap-3 pt-4 border-t border-white/10 flex-wrap">
-                                            <button type="button" 
-                                                    @click="copyToClipboard({{ $promptJson }}, 'Copied debug prompt for AI!')"
-                                                    class="px-4 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 text-xs font-bold flex items-center gap-2 transition-all">
-                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
-                                                Copy Debug Prompt for AI
-                                            </button>
-
-                                            <div class="flex items-center gap-2">
-                                                <form action="{{ route('admin.errors.resolve', $error->id) }}" method="POST">
-                                                    @csrf
-                                                    <button type="submit" class="px-4 py-2 rounded-xl {{ $error->resolved ? 'bg-white/10 text-slate-300 hover:text-white' : 'bg-emerald-500 hover:bg-emerald-600 text-white' }} text-xs font-bold transition-all shadow-md">
-                                                        {{ $error->resolved ? 'Reopen Issue' : 'Mark as Resolved' }}
-                                                    </button>
-                                                </form>
-                                                <button type="button" @click="activeModal = null" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold">
-                                                    Close
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
                             </td>
                         </tr>
                     @empty
@@ -475,4 +375,248 @@
         @endif
     </div>
 </div>
+
+<!-- SINGLE UNIVERSAL INSPECT ERROR MODAL (Native Vanilla JS) -->
+<div id="universalInspectModal" 
+     class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 text-left">
+    <div class="glass-panel p-6 sm:p-8 rounded-3xl max-w-3xl w-full border border-white/10 shadow-2xl max-h-[90vh] overflow-y-auto space-y-6">
+        
+        <!-- Modal Top Bar -->
+        <div class="flex items-start justify-between gap-4 border-b border-white/10 pb-4">
+            <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span id="modalSeverityBadge" class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase"></span>
+                    <span id="modalScreenBadge" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-white/10 text-slate-300"></span>
+                    <span id="modalIssueId" class="text-xs text-slate-400 font-mono"></span>
+                </div>
+                <h3 id="modalErrorMessage" class="text-lg sm:text-xl font-bold text-white mt-2 break-words leading-snug"></h3>
+            </div>
+            <button type="button" onclick="closeInspectModal()" class="text-slate-400 hover:text-white text-3xl font-bold p-1 leading-none">&times;</button>
+        </div>
+
+        <!-- Device & Environment Card -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-2xl bg-white/5 border border-white/5 text-xs">
+            <div>
+                <div class="text-[10px] text-slate-400 uppercase font-semibold">User & Device ID</div>
+                <div id="modalUser" class="font-bold text-white mt-0.5 truncate"></div>
+                <div id="modalDeviceId" class="font-mono text-[10px] text-slate-500 truncate"></div>
+            </div>
+            <div>
+                <div class="text-[10px] text-slate-400 uppercase font-semibold">Platform & OS</div>
+                <div id="modalPlatform" class="font-bold text-slate-200 mt-0.5 uppercase"></div>
+                <div id="modalOs" class="text-[10px] text-slate-400 truncate"></div>
+            </div>
+            <div>
+                <div class="text-[10px] text-slate-400 uppercase font-semibold">App Version & IP</div>
+                <div id="modalAppVersion" class="font-bold text-slate-200 mt-0.5"></div>
+                <div id="modalIp" class="font-mono text-[10px] text-slate-400 truncate"></div>
+            </div>
+            <div>
+                <div class="text-[10px] text-slate-400 uppercase font-semibold">Location & Time</div>
+                <div id="modalLocation" class="font-bold text-white mt-0.5 flex items-center gap-1"></div>
+                <div id="modalTime" class="text-[10px] text-slate-400"></div>
+            </div>
+        </div>
+
+        <!-- Stack Trace Section -->
+        <div id="modalStackTraceSection" class="space-y-2">
+            <div class="flex items-center justify-between">
+                <div class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+                    Stack Trace
+                </div>
+                <button type="button" 
+                        id="modalCopyTraceBtn"
+                        class="text-[11px] font-semibold text-sky-400 hover:text-sky-300 flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                    Copy Trace
+                </button>
+            </div>
+            <pre id="modalStackTrace" class="p-4 rounded-2xl bg-[#0B0C10] border border-white/10 text-emerald-400 font-mono text-[11px] overflow-x-auto max-h-60 whitespace-pre-wrap leading-relaxed"></pre>
+        </div>
+
+        <!-- Metadata Section -->
+        <div id="modalMetadataSection" class="space-y-2">
+            <div class="text-xs font-bold text-slate-300 uppercase tracking-wider">Context Metadata</div>
+            <pre id="modalMetadata" class="p-4 rounded-2xl bg-[#0B0C10] border border-white/10 text-amber-300 font-mono text-[11px] overflow-x-auto max-h-40 whitespace-pre-wrap"></pre>
+        </div>
+
+        <!-- Modal Footer Actions -->
+        <div class="flex items-center justify-between gap-3 pt-4 border-t border-white/10 flex-wrap">
+            <button type="button" 
+                    id="modalCopyPromptBtn"
+                    class="px-4 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 text-xs font-bold flex items-center gap-2 transition-all">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                Copy Debug Prompt for AI
+            </button>
+
+            <div class="flex items-center gap-2">
+                <form id="modalResolveForm" method="POST">
+                    @csrf
+                    <button type="submit" id="modalResolveBtn" class="px-4 py-2 rounded-xl text-white text-xs font-bold transition-all shadow-md"></button>
+                </form>
+                <button type="button" onclick="closeInspectModal()" class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentInspectData = null;
+
+function openInspectModal(data) {
+    currentInspectData = data;
+    const modal = document.getElementById('universalInspectModal');
+    if (!modal) return;
+
+    // Severity badge styling
+    const sevBadge = document.getElementById('modalSeverityBadge');
+    if (sevBadge) {
+        sevBadge.textContent = data.severity;
+        if (data.severity === 'FATAL') {
+            sevBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/40';
+        } else if (data.severity === 'ERROR') {
+            sevBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40';
+        } else {
+            sevBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/40';
+        }
+    }
+
+    document.getElementById('modalScreenBadge').textContent = 'Screen: ' + data.screen;
+    document.getElementById('modalIssueId').textContent = 'Issue #' + data.id + ' (' + data.error_type + ')';
+    document.getElementById('modalErrorMessage').textContent = data.error_message;
+
+    document.getElementById('modalUser').textContent = data.username;
+    document.getElementById('modalDeviceId').textContent = data.device_id;
+    document.getElementById('modalPlatform').textContent = data.platform;
+    document.getElementById('modalOs').textContent = data.os;
+    document.getElementById('modalAppVersion').textContent = 'v' + data.app_version;
+    document.getElementById('modalIp').textContent = data.ip;
+    document.getElementById('modalLocation').textContent = (data.country_flag || '🌐') + ' ' + data.country;
+    document.getElementById('modalTime').textContent = data.time;
+
+    // Stack Trace
+    const traceSection = document.getElementById('modalStackTraceSection');
+    const traceElem = document.getElementById('modalStackTrace');
+    if (data.stack_trace && data.stack_trace.trim().length > 0) {
+        traceSection.classList.remove('hidden');
+        traceElem.textContent = data.stack_trace;
+        document.getElementById('modalCopyTraceBtn').onclick = function() {
+            copyToClipboard(data.stack_trace, 'Stack trace copied to clipboard!');
+        };
+    } else {
+        traceSection.classList.add('hidden');
+    }
+
+    // Metadata
+    const metaSection = document.getElementById('modalMetadataSection');
+    const metaElem = document.getElementById('modalMetadata');
+    if (data.metadata) {
+        metaSection.classList.remove('hidden');
+        metaElem.textContent = typeof data.metadata === 'object' ? JSON.stringify(data.metadata, null, 2) : data.metadata;
+    } else {
+        metaSection.classList.add('hidden');
+    }
+
+    // Copy Prompt Button
+    document.getElementById('modalCopyPromptBtn').onclick = function() {
+        copyToClipboard(data.prompt, 'Debug prompt copied for AI Assistant!');
+    };
+
+    // Resolve Form Button
+    const resolveForm = document.getElementById('modalResolveForm');
+    const resolveBtn = document.getElementById('modalResolveBtn');
+    resolveForm.action = data.resolve_url;
+    if (data.resolved) {
+        resolveBtn.textContent = 'Reopen Issue';
+        resolveBtn.className = 'px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white text-xs font-bold transition-all';
+    } else {
+        resolveBtn.textContent = 'Mark as Resolved';
+        resolveBtn.className = 'px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-md';
+    }
+
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeInspectModal() {
+    const modal = document.getElementById('universalInspectModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+    document.body.style.overflow = 'auto';
+}
+
+function toggleExportDropdown() {
+    const menu = document.getElementById('exportDropdownMenu');
+    if (menu) {
+        menu.classList.toggle('hidden');
+    }
+}
+
+function copyToClipboard(text, msg) {
+    if (!msg) msg = 'Copied to clipboard!';
+    if (navigator.clipboard && window.isSecureContext) {
+        navigator.clipboard.writeText(text).then(function() {
+            showToast(msg);
+        }).catch(function() {
+            fallbackCopy(text, msg);
+        });
+    } else {
+        fallbackCopy(text, msg);
+    }
+}
+
+function fallbackCopy(text, msg) {
+    const el = document.createElement('textarea');
+    el.value = text;
+    el.setAttribute('readonly', '');
+    el.style.position = 'absolute';
+    el.style.left = '-9999px';
+    document.body.appendChild(el);
+    el.select();
+    try {
+        document.execCommand('copy');
+        showToast(msg);
+    } catch (e) {
+        console.warn('Copy failed', e);
+    }
+    document.body.removeChild(el);
+}
+
+function showToast(msg) {
+    const toast = document.getElementById('globalToast');
+    const toastMsg = document.getElementById('globalToastMessage');
+    if (toast && toastMsg) {
+        toastMsg.textContent = msg;
+        toast.classList.remove('hidden');
+        setTimeout(function() {
+            toast.classList.add('hidden');
+        }, 3000);
+    }
+}
+
+// Close modal when pressing Escape or clicking backdrop
+window.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeInspectModal();
+        const menu = document.getElementById('exportDropdownMenu');
+        if (menu) menu.classList.add('hidden');
+    }
+});
+
+window.addEventListener('click', function(e) {
+    const modal = document.getElementById('universalInspectModal');
+    if (modal && e.target === modal) {
+        closeInspectModal();
+    }
+    const btn = document.getElementById('exportDropdownBtn');
+    const menu = document.getElementById('exportDropdownMenu');
+    if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
+        menu.classList.add('hidden');
+    }
+});
+</script>
 @endsection
