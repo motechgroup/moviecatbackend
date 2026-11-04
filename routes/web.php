@@ -42,6 +42,8 @@ Route::prefix('admin')->group(function () {
 
         // Client App Error Telemetry Logs
         Route::get('/errors', [DashboardController::class, 'errors'])->name('admin.errors.index');
+        Route::get('/errors/export', [DashboardController::class, 'exportErrors'])->name('admin.errors.export');
+        Route::post('/errors/resolve-all', [DashboardController::class, 'resolveAllErrors'])->name('admin.errors.resolveAll');
         Route::post('/errors/{id}/resolve', [DashboardController::class, 'resolveError'])->name('admin.errors.resolve');
         Route::delete('/errors/{id}', [DashboardController::class, 'deleteError'])->name('admin.errors.delete');
         Route::post('/errors/clear-resolved', [DashboardController::class, 'clearResolvedErrors'])->name('admin.errors.clear');

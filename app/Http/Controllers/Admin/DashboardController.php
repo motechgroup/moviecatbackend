@@ -554,6 +554,197 @@ class DashboardController extends Controller
         return view('admin.errors', compact('errors', 'stats', 'screens'));
     }
 
+        // 7b. Export App Errors for Debugging (Markdown, JSON, CSV)
+    public function exportErrors(Request $request)
+    {
+        $format = strtolower($request->query('format', 'markdown'));
+        $query = AppError::with('device');
+
+        if ($search = $request->query('search')) {
+            $query->where(function ($q) use ($search) {
+                $q->where('error_message', 'like', "%{$search}%")
+                  ->orWhere('screen', 'like', "%{$search}%")
+                  ->orWhere('device_id', 'like', "%{$search}%")
+                  ->orWhereHas('device', function ($dq) use ($search) {
+                      $dq->where('username', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        if ($severity = $request->query('severity')) {
+            $query->where('severity', $severity);
+        }
+
+        if ($screen = $request->query('screen')) {
+            $query->where('screen', $screen);
+        }
+
+        if ($request->query('status') === 'unresolved') {
+            $query->where('resolved', false);
+        } elseif ($request->query('status') === 'resolved') {
+            $query->where('resolved', true);
+        }
+
+        if ($device = $request->query('device_id')) {
+            $query->where('device_id', $device);
+        }
+
+        $errors = $query->orderByDesc('created_at')->take(500)->get();
+        $dateStr = now()->format('Y-m-d_His');
+
+        if ($format === 'json') {
+            $exportData = [
+                'exported_at' => now()->toIso8601String(),
+                'total_count' => $errors->count(),
+                'filters' => [
+                    'severity' => $request->query('severity') ?: 'all',
+                    'screen' => $request->query('screen') ?: 'all',
+                    'status' => $request->query('status') ?: 'all',
+                    'search' => $request->query('search') ?: 'none',
+                ],
+                'errors' => $errors->map(function ($e) {
+                    return [
+                        'id' => $e->id,
+                        'severity' => $e->severity,
+                        'screen' => $e->screen,
+                        'error_type' => $e->error_type,
+                        'error_message' => $e->error_message,
+                        'stack_trace' => $e->stack_trace,
+                        'metadata' => $e->metadata,
+                        'platform' => $e->platform ?: ($e->device?->platform ?? 'unknown'),
+                        'app_version' => $e->app_version ?: ($e->device?->app_version ?? '1.0.0'),
+                        'device' => [
+                            'device_id' => $e->device_id,
+                            'username' => $e->device?->username ?: $e->device?->display_name,
+                            'device_name' => $e->device?->device_name,
+                            'os_version' => $e->device?->os_version,
+                            'country' => $e->device?->country,
+                            'country_code' => $e->device?->country_code,
+                            'ip_address' => $e->device?->ip_address,
+                        ],
+                        'resolved' => $e->resolved,
+                        'reported_at' => $e->created_at?->toIso8601String(),
+                    ];
+                }),
+            ];
+
+            return response()->json($exportData, 200, [
+                'Content-Disposition' => "attachment; filename=\"moviecat_errors_{$dateStr}.json\"",
+            ]);
+        }
+
+        if ($format === 'csv') {
+            $filename = "moviecat_errors_{$dateStr}.csv";
+            $headers = [
+                'Content-Type' => 'text/csv',
+                'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            ];
+
+            $callback = function () use ($errors) {
+                $file = fopen('php://output', 'w');
+                fputcsv($file, [
+                    'Error ID',
+                    'Severity',
+                    'Screen',
+                    'Error Type',
+                    'Error Message',
+                    'Device ID',
+                    'Username',
+                    'Platform',
+                    'OS Version',
+                    'App Version',
+                    'Country',
+                    'IP Address',
+                    'Status',
+                    'Reported At',
+                ]);
+
+                foreach ($errors as $e) {
+                    fputcsv($file, [
+                        $e->id,
+                        strtoupper($e->severity),
+                        $e->screen ?: 'global',
+                        $e->error_type,
+                        $e->error_message,
+                        $e->device_id,
+                        $e->device?->display_name ?: 'Unknown',
+                        $e->platform ?: ($e->device?->platform ?? 'unknown'),
+                        $e->device?->os_version ?? '',
+                        $e->app_version ?? '1.0.0',
+                        $e->device?->country ?? '',
+                        $e->device?->ip_address ?? '',
+                        $e->resolved ? 'Resolved' : 'Open',
+                        $e->created_at?->format('Y-m-d H:i:s') ?? '',
+                    ]);
+                }
+                fclose($file);
+            };
+
+            return response()->stream($callback, 200, $headers);
+        }
+
+        // Default: Formatted Markdown Debug Report for AI and Developers
+        $filename = "moviecat_debug_report_{$dateStr}.md";
+        $md = "# MovieCat Mobile App Debug Report\n";
+        $md .= "**Generated:** " . now()->format('Y-m-d H:i:s T') . "\n";
+        $md .= "**Total Issues in Report:** " . $errors->count() . "\n";
+        $md .= "**Filter Criteria:** Severity: " . ($request->query('severity') ?: 'all') . " | Screen: " . ($request->query('screen') ?: 'all') . " | Status: " . ($request->query('status') ?: 'all') . "\n\n";
+        $md .= "---\n\n";
+
+        if ($errors->isEmpty()) {
+            $md .= "No error logs matched the specified criteria.\n";
+        } else {
+            foreach ($errors as $idx => $e) {
+                $num = $idx + 1;
+                $sev = strtoupper($e->severity);
+                $scr = $e->screen ?: 'global';
+                $status = $e->resolved ? 'RESOLVED' : 'OPEN (Requires Attention)';
+                $user = $e->device?->display_name ?: 'Guest';
+                $devId = $e->device_id ?: 'Unknown';
+                $platform = strtoupper($e->platform ?: ($e->device?->platform ?? 'ANDROID'));
+                $os = $e->device?->os_version ?: 'Unknown OS';
+                $appVer = $e->app_version ?: ($e->device?->app_version ?? '1.0.0');
+                $country = $e->device?->country ?: 'Unknown';
+                $ip = $e->device?->ip_address ?: 'Unknown';
+                $time = $e->created_at ? $e->created_at->format('Y-m-d H:i:s T') . " (" . $e->created_at->diffForHumans() . ")" : 'Unknown';
+
+                $md .= "## Issue #{$e->id}: [{$sev}] on [{$scr}]\n\n";
+                $md .= "- **Status**: {$status}\n";
+                $md .= "- **Reported At**: {$time}\n";
+                $md .= "- **Error Type**: `{$e->error_type}`\n";
+                $md .= "- **Affected Device**: `{$devId}` ({$user})\n";
+                $md .= "- **Environment**: {$platform} (OS: {$os}) • App Version: {$appVer}\n";
+                $md .= "- **Location & IP**: {$country} • `{$ip}`\n\n";
+
+                $md .= "### Error Message:\n```\n{$e->error_message}\n```\n\n";
+
+                if (!empty($e->stack_trace)) {
+                    $md .= "### Stack Trace:\n```\n{$e->stack_trace}\n```\n\n";
+                }
+
+                if (!empty($e->metadata)) {
+                    $metaJson = is_array($e->metadata) ? json_encode($e->metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) : $e->metadata;
+                    $md .= "### Context Metadata:\n```json\n{$metaJson}\n```\n\n";
+                }
+
+                $md .= "### AI / Developer Debug Prompt:\n";
+                $md .= "> \"Help me debug and resolve this {$sev} issue in the MovieCat mobile app. The error occurred on the '{$scr}' screen running on {$platform} ({$os}) with app version {$appVer}. Error message: '{$e->error_message}'. Please analyze the stack trace and propose a fix.\"\n\n";
+                $md .= "---\n\n";
+            }
+        }
+
+        return response($md, 200, [
+            'Content-Type' => 'text/markdown; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
+    }
+
+    public function resolveAllErrors(Request $request): RedirectResponse
+    {
+        $updated = AppError::where('resolved', false)->update(['resolved' => true]);
+        return back()->with('success', "Marked {$updated} error logs as resolved.");
+    }
+
     public function resolveError(string $id): RedirectResponse
     {
         $error = AppError::findOrFail($id);
