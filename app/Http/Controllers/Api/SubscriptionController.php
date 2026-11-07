@@ -223,59 +223,79 @@ class SubscriptionController extends Controller
         $deviceId = $request->query("device_id");
         $username = $request->query("username");
 
-        $sub = Subscription::where(function ($q) use ($reference, $checkoutRequestId) {
-            if (!empty($reference)) {
-                $q->orWhere("reference", $reference);
-            }
-            if (!empty($checkoutRequestId)) {
-                $q->orWhere("checkout_request_id", $checkoutRequestId);
-            }
-        })->first();
-
-        // 1. Fast path: check if sub is already active
-        if ($sub && $sub->isActive()) {
-            return response()->json([
-                "success" => true,
-                "paid" => true,
-                "status" => "active",
-                "expires_at" => $sub->expires_at->toIso8601String(),
-            ]);
+        $sub = null;
+        if (!empty($reference) || !empty($checkoutRequestId)) {
+            $sub = Subscription::where(function ($q) use ($reference, $checkoutRequestId) {
+                if (!empty($reference)) {
+                    $q->orWhere("reference", $reference);
+                }
+                if (!empty($checkoutRequestId)) {
+                    $q->orWhere("checkout_request_id", $checkoutRequestId);
+                }
+            })->first();
         }
 
-        // Fast path: check if any active subscription exists for this user/device
-        $active = Subscription::getActiveFor($deviceId, $username);
-        if ($active) {
-            return response()->json([
-                "success" => true,
-                "paid" => true,
-                "status" => "active",
-                "expires_at" => $active->expires_at->toIso8601String(),
-            ]);
-        }
-
-        if (!$sub) {
-            return response()->json(["success" => false, "paid" => false, "message" => "Transaction not found."], 404);
-        }
-
-        // 2. Active Verification: if still pending and using PayHero, actively verify status right now
-        if ($sub->status === "pending" && ($sub->gateway === "payhero" || !empty($sub->checkout_request_id))) {
-            if ($this->checkPayheroTransactionStatus($sub)) {
-                $fresh = $sub->fresh();
+        // When a specific transaction is being polled, ONLY verify that transaction
+        if ($sub) {
+            // If already confirmed active in DB
+            if ($sub->status === "active" && $sub->expires_at && $sub->expires_at->isFuture()) {
                 return response()->json([
                     "success" => true,
                     "paid" => true,
                     "status" => "active",
-                    "expires_at" => $fresh->expires_at ? $fresh->expires_at->toIso8601String() : null,
+                    "expires_at" => $sub->expires_at->toIso8601String(),
+                ]);
+            }
+
+            // If already marked failed
+            if ($sub->status === "failed") {
+                return response()->json([
+                    "success" => false,
+                    "paid" => false,
+                    "status" => "failed",
+                    "message" => "Payment was declined or cancelled.",
+                ]);
+            }
+
+            // If still pending, actively verify with PayHero with STRICT confirmation check
+            if ($sub->status === "pending" && ($sub->gateway === "payhero" || !empty($sub->checkout_request_id))) {
+                if ($this->checkPayheroTransactionStatus($sub)) {
+                    $fresh = $sub->fresh();
+                    return response()->json([
+                        "success" => true,
+                        "paid" => true,
+                        "status" => "active",
+                        "expires_at" => $fresh->expires_at ? $fresh->expires_at->toIso8601String() : null,
+                    ]);
+                }
+            }
+
+            return response()->json([
+                "success" => true,
+                "paid" => false,
+                "status" => $sub->status,
+                "expires_at" => null,
+            ]);
+        }
+
+        // ONLY if no specific transaction reference was requested, check general active device status
+        if (empty($reference) && empty($checkoutRequestId)) {
+            $active = Subscription::getActiveFor($deviceId, $username);
+            if ($active) {
+                return response()->json([
+                    "success" => true,
+                    "paid" => true,
+                    "status" => "active",
+                    "expires_at" => $active->expires_at->toIso8601String(),
                 ]);
             }
         }
 
         return response()->json([
-            "success" => true,
-            "paid" => $sub->status === "active",
-            "status" => $sub->status,
-            "expires_at" => $sub->expires_at ? $sub->expires_at->toIso8601String() : null,
-        ]);
+            "success" => false,
+            "paid" => false,
+            "message" => "Transaction not found or pending.",
+        ], 404);
     }
 
     /**
@@ -322,7 +342,8 @@ class SubscriptionController extends Controller
             $checkoutId = $resp["CheckoutRequestID"] ?? $resp["checkout_request_id"] ?? $payload["checkout_request_id"] ?? null;
             $receipt = $resp["MpesaReceiptNumber"] ?? $resp["mpesa_receipt_number"] ?? null;
 
-            $isSuccess = in_array($status, ["success", "successful", "completed"]) || $resultCode === 0 || $resultCode === "0";
+            $isSuccess = (($resultCode === 0 || $resultCode === "0") || in_array(strtoupper($status), ["SUCCESS", "COMPLETED", "COMPLETE"])) && (!empty($receipt) || $resultCode === 0);
+            $isFailed = ($resultCode !== null && $resultCode != 0) || in_array(strtoupper($status), ["FAILED", "CANCELLED", "DECLINED"]);
 
             $sub = null;
             if ($externalRef) {
@@ -344,7 +365,7 @@ class SubscriptionController extends Controller
                             "metadata" => array_merge($sub->metadata ?? [], $payload, ["receipt" => $receipt]),
                         ]);
                     });
-                } elseif ($resultCode !== null && $resultCode != 0) {
+                } elseif ($isFailed) {
                     $sub->update([
                         "status" => "failed",
                         "metadata" => array_merge($sub->metadata ?? [], $payload),
@@ -457,27 +478,38 @@ class SubscriptionController extends Controller
                 if ($res->successful()) {
                     $data = $res->json();
                     $status = strtoupper((string)($data["status"] ?? ""));
-                    $isSuccess = ($data["success"] ?? false) === true || $status === "SUCCESS";
+                    $thirdPartyRef = $data["third_party_reference"] ?? $data["provider_reference"] ?? null;
+
+                    // STRICT VERIFICATION:
+                    // PayHero returns success:true even for FAILED/QUEUED queries!
+                    // A transaction is ONLY successful if status is explicitly SUCCESS/COMPLETED AND has an M-Pesa code
+                    $isSuccess = in_array($status, ["SUCCESS", "COMPLETED", "COMPLETE"]) && !empty($thirdPartyRef);
+                    $isFailed = in_array($status, ["FAILED", "CANCELLED", "TIMEOUT", "DECLINED"]);
 
                     if ($isSuccess) {
                         $periodDays = $sub->period_days ?: ($sub->package_id === "vault_vip_week" ? 7 : 30);
-                        DB::transaction(function () use ($sub, $periodDays, $data) {
+                        DB::transaction(function () use ($sub, $periodDays, $data, $thirdPartyRef) {
                             $sub->lockForUpdate();
                             $sub->update([
                                 "status" => "active",
                                 "starts_at" => now(),
                                 "expires_at" => now()->addDays($periodDays),
-                                "metadata" => array_merge($sub->metadata ?? [], ["auto_verified" => $data]),
+                                "metadata" => array_merge($sub->metadata ?? [], [
+                                    "auto_verified" => $data,
+                                    "receipt" => $thirdPartyRef,
+                                ]),
                             ]);
                         });
                         return true;
-                    } elseif ($status === "FAILED") {
+                    } elseif ($isFailed) {
                         $sub->update([
                             "status" => "failed",
                             "metadata" => array_merge($sub->metadata ?? [], ["auto_verified" => $data]),
                         ]);
                         return false;
                     }
+                    // If QUEUED or PENDING, do NOT mark active - return false and keep waiting
+                    return false;
                 }
             } catch (\Throwable $e) {
                 // Ignore transient query errors
