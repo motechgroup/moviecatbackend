@@ -56,6 +56,12 @@ Route::prefix('admin')->group(function () {
         Route::delete('/errors/{id}', [DashboardController::class, 'deleteError'])->name('admin.errors.delete');
         Route::post('/errors/clear-resolved', [DashboardController::class, 'clearResolvedErrors'])->name('admin.errors.clear');
 
+        // Revenue & Subscriptions Management
+        Route::get('/revenue', [\App\Http\Controllers\Admin\RevenueController::class, 'index'])->name('admin.revenue.index');
+        Route::post('/revenue/{id}/activate', [\App\Http\Controllers\Admin\RevenueController::class, 'activate'])->name('admin.revenue.activate');
+        Route::post('/revenue/{id}/extend', [\App\Http\Controllers\Admin\RevenueController::class, 'extend'])->name('admin.revenue.extend');
+        Route::post('/revenue/{id}/cancel', [\App\Http\Controllers\Admin\RevenueController::class, 'cancel'])->name('admin.revenue.cancel');
+
         // Remote App Settings
         Route::get('/settings', [DashboardController::class, 'settings'])->name('admin.settings.index');
         Route::post('/settings', [DashboardController::class, 'updateSettings'])->name('admin.settings.update');

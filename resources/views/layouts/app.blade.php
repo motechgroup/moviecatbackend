@@ -137,6 +137,22 @@
                         <span>Downloads & Offline</span>
                     </a>
 
+                    <!-- Revenue & Subscriptions -->
+                    <a href="{{ route('admin.revenue.index') }}" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/[0.04] transition-all {{ request()->routeIs('admin.revenue.*') ? 'nav-active' : '' }}">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-4 h-4 {{ request()->routeIs('admin.revenue.*') ? 'text-amber-400' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>Revenue & Subscriptions</span>
+                        </div>
+                        @php
+                            $activeSubCount = \App\Models\Subscription::active()->count();
+                        @endphp
+                        @if($activeSubCount > 0)
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">{{ $activeSubCount }} VIP</span>
+                        @endif
+                    </a>
+
                     <!-- 6. Remote App Settings -->
                     <a href="{{ route('admin.settings.index') }}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/[0.04] transition-all {{ request()->routeIs('admin.settings.*') ? 'nav-active' : '' }}">
                         <svg class="w-4 h-4 {{ request()->routeIs('admin.settings.*') ? 'text-indigo-400' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
