@@ -58,9 +58,9 @@ Route::prefix('admin')->group(function () {
 
         // Revenue & Subscriptions Management
         Route::get('/revenue', [\App\Http\Controllers\Admin\RevenueController::class, 'index'])->name('admin.revenue.index');
+        Route::get('/searches', [DashboardController::class, 'searches'])->name('admin.searches.index');
         Route::post('/revenue/{id}/activate', [\App\Http\Controllers\Admin\RevenueController::class, 'activate'])->name('admin.revenue.activate');
-        Route::post('/revenue/{id}/extend', [\App\Http\Controllers\Admin\RevenueController::class, 'extend'])->name('admin.revenue.extend');
-        Route::post('/revenue/{id}/cancel', [\App\Http\Controllers\Admin\RevenueController::class, 'cancel'])->name('admin.revenue.cancel');
+                Route::post('/revenue/{id}/cancel', [\App\Http\Controllers\Admin\RevenueController::class, 'cancel'])->name('admin.revenue.cancel');
 
         // Remote App Settings
         Route::get('/settings', [DashboardController::class, 'settings'])->name('admin.settings.index');

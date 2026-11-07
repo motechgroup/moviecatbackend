@@ -54,7 +54,60 @@
     </div>
 
     <!-- PRIMARY EXECUTIVE KPI CARDS (BENTO GRID) -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+
+        <!-- 0A. Subscription Revenue Stat Card -->
+        <a href="{{ route('admin.revenue.index') }}" class="p-5 rounded-3xl glass-panel relative overflow-hidden group hover:border-amber-500/40 transition-all duration-300 block bg-gradient-to-br from-amber-500/10 via-transparent to-transparent">
+            <div class="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
+                <span>Revenue</span>
+                <div class="w-7 h-7 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
+            </div>
+            
+            <div class="text-2xl sm:text-3xl font-black text-amber-300 mt-2 tracking-tight">
+                {{ $stats['currency'] }} {{ number_format($stats['totalRevenue']) }}
+            </div>
+
+            <div class="space-y-1 mt-3 pt-3 border-t border-white/5">
+                <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-slate-300 font-semibold">This Month:</span>
+                    <span class="text-emerald-400 font-mono font-bold">{{ $stats['currency'] }} {{ number_format($stats['thisMonthRevenue']) }}</span>
+                </div>
+                <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                    <span>M-Pesa, PayHero, FLW</span>
+                    <span class="text-amber-400 group-hover:underline">Revenue &rarr;</span>
+                </div>
+            </div>
+        </a>
+
+        <!-- 0B. Active VIP Subscribers Stat Card -->
+        <a href="{{ route('admin.revenue.index') }}" class="p-5 rounded-3xl glass-panel relative overflow-hidden group hover:border-emerald-500/40 transition-all duration-300 block bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent">
+            <div class="flex items-center justify-between text-slate-400 text-xs font-bold uppercase tracking-wider">
+                <span>Active VIP Users</span>
+                <div class="w-7 h-7 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                </div>
+            </div>
+
+            <div class="text-2xl sm:text-3xl font-black text-emerald-400 mt-2 tracking-tight">
+                {{ number_format($stats['activeSubscribers']) }}
+            </div>
+
+            <div class="space-y-1 mt-3 pt-3 border-t border-white/5">
+                <div class="flex items-center justify-between text-[11px]">
+                    <span class="text-emerald-400 font-bold flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        Unlimited Vault
+                    </span>
+                    <span class="text-slate-400 font-mono">Pass Holders</span>
+                </div>
+                <div class="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                    <span>Active passes</span>
+                    <span class="text-emerald-400 group-hover:underline">Subscribers &rarr;</span>
+                </div>
+            </div>
+        </a>
         
         <!-- 1. Registered Devices Fleet -->
         <a href="{{ route('admin.devices.index') }}" class="p-5 rounded-3xl glass-panel relative overflow-hidden group hover:border-rose-500/40 transition-all duration-300 block">

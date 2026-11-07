@@ -310,14 +310,6 @@
                                             </button>
                                         </form>
                                     @else
-                                        <!-- Extend +30 Days -->
-                                        <form action="{{ route('admin.revenue.extend', $sub->id) }}" method="POST">
-                                            @csrf
-                                            <input type="hidden" name="days" value="30">
-                                            <button type="submit" title="Extend +30 Days" class="px-2 py-1 rounded-lg bg-amber-500/15 text-amber-300 hover:bg-amber-500/25 border border-amber-500/30 text-[10px] font-bold transition-all">
-                                                +30d
-                                            </button>
-                                        </form>
                                         <!-- Cancel -->
                                         <form action="{{ route('admin.revenue.cancel', $sub->id) }}" method="POST">
                                             @csrf

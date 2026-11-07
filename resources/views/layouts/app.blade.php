@@ -137,6 +137,22 @@
                         <span>Downloads & Offline</span>
                     </a>
 
+                                        <!-- Search Analytics -->
+                    <a href="{{ route('admin.searches.index') }}" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/[0.04] transition-all {{ request()->routeIs('admin.searches.*') ? 'nav-active' : '' }}">
+                        <div class="flex items-center gap-3">
+                            <svg class="w-4 h-4 {{ request()->routeIs('admin.searches.*') ? 'text-cyan-400' : 'text-slate-400' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            </svg>
+                            <span>Search Analytics</span>
+                        </div>
+                        @php
+                            $todaySearchCount = \App\Models\SearchLog::where('created_at', '>=', now()->startOfDay())->count();
+                        @endphp
+                        @if($todaySearchCount > 0)
+                            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">{{ $todaySearchCount }} new</span>
+                        @endif
+                    </a>
+
                     <!-- Revenue & Subscriptions -->
                     <a href="{{ route('admin.revenue.index') }}" class="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-white/[0.04] transition-all {{ request()->routeIs('admin.revenue.*') ? 'nav-active' : '' }}">
                         <div class="flex items-center gap-3">

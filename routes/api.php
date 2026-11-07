@@ -57,6 +57,9 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     // Ad & Telemetry Analytics (Throttled to prevent flooding)
     Route::post('/telemetry/ad-event', [TelemetryController::class, 'recordAdEvent'])->middleware('throttle:120,1');
     Route::post('/telemetry/error', [TelemetryController::class, 'recordAppError'])->middleware('throttle:60,1');
+        // Search Query & Linked Media Telemetry
+    Route::post('/telemetry/search', [TelemetryController::class, 'recordSearch'])->middleware('throttle:60,1');
+    Route::post('/telemetry/search/link', [TelemetryController::class, 'linkSearchMedia'])->middleware('throttle:60,1');
     Route::post('/telemetry/download', [TelemetryController::class, 'recordDownload'])->middleware('throttle:60,1');
     Route::post('/telemetry/downloads/sync', [TelemetryController::class, 'syncVaultDownloads'])->middleware('throttle:60,1');
 

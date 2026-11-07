@@ -184,6 +184,8 @@
                 <select name="status" class="bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none">
                     <option value="">All Statuses</option>
                     <option value="completed" {{ request('status') === 'completed' ? 'selected' : '' }}>Completed</option>
+                    <option value="downloading" {{ request('status') === 'downloading' ? 'selected' : '' }}>Active Downloading</option>
+                    <option value="queued" {{ request('status') === 'queued' ? 'selected' : '' }}>Queued</option>
                     <option value="offline_watched" {{ request('status') === 'offline_watched' ? 'selected' : '' }}>Offline Watched</option>
                     <option value="deleted" {{ request('status') === 'deleted' ? 'selected' : '' }}>Deleted</option>
                 </select>

@@ -241,4 +241,100 @@ class TelemetryController extends Controller
             return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
+    /**
+     * Record user search query
+     */
+    public function recordSearch(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'device_id' => 'nullable|string|max:128',
+            'username' => 'nullable|string|max:64',
+            'query' => 'required|string|max:255',
+            'results_count' => 'nullable|integer',
+            'media_id' => 'nullable|string|max:64',
+            'media_type' => 'nullable|string|in:movie,tv',
+            'title' => 'nullable|string|max:255',
+            'poster' => 'nullable|string',
+            'year' => 'nullable|string|max:16',
+        ]);
+
+        $searchLog = \App\Models\SearchLog::create([
+            'device_id' => $validated['device_id'] ?? $request->header('X-Device-Id'),
+            'username' => $validated['username'] ?? $request->header('X-Username'),
+            'query' => trim($validated['query']),
+            'results_count' => $validated['results_count'] ?? 0,
+            'media_id' => $validated['media_id'] ?? null,
+            'media_type' => $validated['media_type'] ?? null,
+            'title' => $validated['title'] ?? null,
+            'poster' => $validated['poster'] ?? null,
+            'year' => $validated['year'] ?? null,
+            'ip_address' => $request->ip(),
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'search_id' => $searchLog->id,
+        ], 201);
+    }
+
+    /**
+     * Link clicked TV series or Movie to the user's search
+     */
+    public function linkSearchMedia(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'device_id' => 'nullable|string|max:128',
+            'username' => 'nullable|string|max:64',
+            'query' => 'required|string|max:255',
+            'media_id' => 'required|string|max:64',
+            'media_type' => 'required|string|in:movie,tv',
+            'title' => 'required|string|max:255',
+            'poster' => 'nullable|string',
+            'year' => 'nullable|string|max:16',
+        ]);
+
+        $deviceId = $validated['device_id'] ?? $request->header('X-Device-Id');
+        $query = trim($validated['query']);
+
+        // Find the recent search log for this query & device within last 15 minutes, or create fresh
+        $recent = \App\Models\SearchLog::where('query', $query)
+            ->where(function ($q) use ($deviceId) {
+                if (!empty($deviceId)) {
+                    $q->where('device_id', $deviceId);
+                }
+            })
+            ->whereNull('title')
+            ->latest()
+            ->first();
+
+        if ($recent) {
+            $recent->update([
+                'media_id' => $validated['media_id'],
+                'media_type' => $validated['media_type'],
+                'title' => $validated['title'],
+                'poster' => $validated['poster'] ?? null,
+                'year' => $validated['year'] ?? null,
+            ]);
+            $item = $recent;
+        } else {
+            $item = \App\Models\SearchLog::create([
+                'device_id' => $deviceId,
+                'username' => $validated['username'] ?? $request->header('X-Username'),
+                'query' => $query,
+                'results_count' => 1,
+                'media_id' => $validated['media_id'],
+                'media_type' => $validated['media_type'],
+                'title' => $validated['title'],
+                'poster' => $validated['poster'] ?? null,
+                'year' => $validated['year'] ?? null,
+                'ip_address' => $request->ip(),
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'search_id' => $item->id,
+        ]);
+    }
+
 }

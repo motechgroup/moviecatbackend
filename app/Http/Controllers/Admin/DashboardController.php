@@ -8,6 +8,8 @@ use App\Models\AppError;
 use App\Models\AppSetting;
 use App\Models\Bookmark;
 use App\Models\Device;
+use App\Models\Subscription;
+use App\Models\SearchLog;
 use App\Models\DownloadEvent;
 use App\Models\WatchProgress;
 use Illuminate\Http\RedirectResponse;
@@ -104,11 +106,19 @@ class DashboardController extends Controller
 
             $totalWatchSeconds = (int)WatchProgress::sum('current_time');
             $totalDownloadBytes = Schema::hasTable('download_events')
-                ? (int)DownloadEvent::where('status', 'completed')->sum('file_size_bytes')
+                ? (int)DownloadEvent::whereIn('status', ['completed', 'offline_watched', 'downloading'])->sum('file_size_bytes')
                 : 0;
             $totalDownloads = Schema::hasTable('download_events') ? DownloadEvent::count() : 0;
-
             $totalDevicesCount = Device::count();
+
+            $currency = (string)AppSetting::get("vault_subscription_currency", "KES");
+            $totalRevenue = (float)Subscription::where("status", "active")->sum("amount");
+            $thisMonthRevenue = (float)Subscription::where("status", "active")
+                ->where("starts_at", ">=", now()->startOfMonth())
+                ->sum("amount");
+            $activeSubscribers = Subscription::active()->count();
+            $totalSearches = Schema::hasTable('search_logs') ? SearchLog::count() : 0;
+            $todaySearches = Schema::hasTable('search_logs') ? SearchLog::where('created_at', '>=', now()->startOfDay())->count() : 0;
 
             $stats = [
                 'totalDevices' => $totalDevicesCount,
@@ -127,6 +137,12 @@ class DashboardController extends Controller
                 'totalWatchSeconds' => $totalWatchSeconds,
                 'totalDownloads' => $totalDownloads,
                 'totalDataTransferred' => $this->formatBytes($totalDownloadBytes),
+                'totalRevenue' => $totalRevenue,
+                'thisMonthRevenue' => $thisMonthRevenue,
+                'activeSubscribers' => $activeSubscribers,
+                'currency' => $currency,
+                'totalSearches' => $totalSearches,
+                'todaySearches' => $todaySearches,
             ];
 
             // 7-day streaming velocity & activity trend
@@ -302,6 +318,11 @@ class DashboardController extends Controller
                     return $dev;
                 });
 
+            // Recent User Searches & Linked Media
+            $recentSearches = Schema::hasTable('search_logs')
+                ? SearchLog::with('device')->latest()->take(6)->get()
+                : collect();
+
         } catch (Throwable) {
             $stats = [
                 'totalDevices' => 0, 'activeNowDevices' => 0, 'activeTodayDevices' => 0,
@@ -309,7 +330,10 @@ class DashboardController extends Controller
                 'completedWatches' => 0, 'totalBookmarks' => 0, 'adImpressions' => 0,
                 'unresolvedErrors' => 0, 'totalErrors' => 0, 'totalCountries' => 0,
                 'totalWatchTime' => '0 min', 'totalWatchSeconds' => 0, 'totalDownloads' => 0, 'totalDataTransferred' => '0 MB',
+                'totalRevenue' => 0, 'thisMonthRevenue' => 0, 'activeSubscribers' => 0, 'currency' => 'KES',
+                'totalSearches' => 0, 'todaySearches' => 0,
             ];
+            $recentSearches = collect();
             $trendLabels = collect(['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']);
             $trendWatchMins = collect([0, 0, 0, 0, 0, 0, 0]);
             $trendCheckpoints = collect([0, 0, 0, 0, 0, 0, 0]);
@@ -350,7 +374,8 @@ class DashboardController extends Controller
             'mostWatchedSeries',
             'mostDownloaded',
             'adsEnabled',
-            'downloadsEnabled'
+            'downloadsEnabled',
+            'recentSearches'
         ));
     }
 
@@ -488,26 +513,26 @@ class DashboardController extends Controller
                 'uniqueDevices' => DownloadEvent::distinct('device_id')->count('device_id'),
             ];
 
-            // Top Downloaded Movies
+            // Top Downloaded Movies (Real Active & Completed Data)
             $topMovies = DownloadEvent::select('title', 'poster', 'media_id', DB::raw('count(*) as count'), DB::raw('sum(file_size_bytes) as bytes'))
                 ->where('media_type', 'movie')
-                ->where('status', 'completed')
+                ->whereIn('status', ['completed', 'offline_watched', 'downloading'])
                 ->groupBy('title', 'poster', 'media_id')
                 ->orderByDesc('count')
-                ->take(6)
+                ->take(8)
                 ->get()
                 ->map(function ($item) {
                     $item->formatted_size = $this->formatBytes((int)$item->bytes);
                     return $item;
                 });
 
-            // Top Downloaded TV Series
+            // Top Downloaded TV Series (Real Active & Completed Data)
             $topSeries = DownloadEvent::select('title', 'poster', 'media_id', DB::raw('count(*) as count'), DB::raw('sum(file_size_bytes) as bytes'))
                 ->where('media_type', 'tv')
-                ->where('status', 'completed')
+                ->whereIn('status', ['completed', 'offline_watched', 'downloading'])
                 ->groupBy('title', 'poster', 'media_id')
                 ->orderByDesc('count')
-                ->take(6)
+                ->take(8)
                 ->get()
                 ->map(function ($item) {
                     $item->formatted_size = $this->formatBytes((int)$item->bytes);
@@ -1104,4 +1129,73 @@ class DashboardController extends Controller
 
         return back()->with('success', 'Password successfully updated! Your account is secure.');
     }
+
+    // 6. User Search Analytics & Discovery
+    public function searches(Request $request): View
+    {
+        try {
+            $query = SearchLog::with('device')->latest();
+
+            if ($search = trim((string)$request->query('q', ''))) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('query', 'like', "%{$search}%")
+                      ->orWhere('title', 'like', "%{$search}%")
+                      ->orWhere('username', 'like', "%{$search}%")
+                      ->orWhere('device_id', 'like', "%{$search}%");
+                });
+            }
+
+            if ($type = $request->query('type')) {
+                $query->where('media_type', $type);
+            }
+
+            if ($linked = $request->query('linked')) {
+                if ($linked === 'yes') {
+                    $query->whereNotNull('title');
+                } elseif ($linked === 'no') {
+                    $query->whereNull('title');
+                }
+            }
+
+            $searches = $query->paginate(20)->withQueryString();
+
+            $totalSearches = SearchLog::count();
+            $todaySearches = SearchLog::where('created_at', '>=', now()->startOfDay())->count();
+            $linkedCount = SearchLog::whereNotNull('title')->count();
+            $conversionRate = $totalSearches > 0 ? round(($linkedCount / $totalSearches) * 100, 1) : 0;
+            $uniqueQueries = SearchLog::distinct('query')->count('query');
+
+            $stats = [
+                'total' => $totalSearches,
+                'today' => $todaySearches,
+                'linked' => $linkedCount,
+                'conversionRate' => $conversionRate,
+                'uniqueQueries' => $uniqueQueries,
+            ];
+
+            // Top Trending Search Queries
+            $topQueries = SearchLog::select('query', DB::raw('count(*) as count'), DB::raw('max(created_at) as last_searched_at'))
+                ->groupBy('query')
+                ->orderByDesc('count')
+                ->take(10)
+                ->get();
+
+            // Most Linked/Discovered Movies & TV Series from Search
+            $topLinkedMedia = SearchLog::select('title', 'poster', 'media_id', 'media_type', 'year', DB::raw('count(*) as count'))
+                ->whereNotNull('title')
+                ->groupBy('title', 'poster', 'media_id', 'media_type', 'year')
+                ->orderByDesc('count')
+                ->take(8)
+                ->get();
+
+        } catch (Throwable) {
+            $searches = new LengthAwarePaginator([], 0, 20);
+            $stats = ['total' => 0, 'today' => 0, 'linked' => 0, 'conversionRate' => 0, 'uniqueQueries' => 0];
+            $topQueries = collect();
+            $topLinkedMedia = collect();
+        }
+
+        return view('admin.searches', compact('searches', 'stats', 'topQueries', 'topLinkedMedia'));
+    }
+
 }

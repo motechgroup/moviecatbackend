@@ -125,29 +125,6 @@ class RevenueController extends Controller
     }
 
     /**
-     * Extend subscription by +7 or +30 days
-     */
-    public function extend(int $id, Request $request): RedirectResponse
-    {
-        $sub = Subscription::findOrFail($id);
-        $daysToAdd = (int)$request->input("days", 30);
-
-        $baseDate = ($sub->expires_at && $sub->expires_at->isFuture()) ? $sub->expires_at : now();
-        $newExpiry = $baseDate->copy()->addDays($daysToAdd);
-
-        $sub->update([
-            "status" => "active",
-            "expires_at" => $newExpiry,
-            "metadata" => array_merge($sub->metadata ?? [], [
-                "extended_by_admin_days" => $daysToAdd,
-                "extended_at" => now()->toIso8601String(),
-            ]),
-        ]);
-
-        return redirect()->back()->with("success", "Subscription for {$sub->username} extended by {$daysToAdd} days (Expires: {$newExpiry->format('d M Y')}).");
-    }
-
-    /**
      * Cancel or revoke a subscription
      */
     public function cancel(int $id): RedirectResponse
