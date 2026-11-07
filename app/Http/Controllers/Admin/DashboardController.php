@@ -946,9 +946,11 @@ class DashboardController extends Controller
             'feature_similar_series' => (bool)AppSetting::get('feature_similar_series', true),
             'feature_cloud_sync' => (bool)AppSetting::get('feature_cloud_sync', true),
             'vault_subscription_enabled' => (bool)AppSetting::get('vault_subscription_enabled', false),
-            'vault_subscription_price' => AppSetting::get('vault_subscription_price', 100),
+            'vault_sub_price_week' => AppSetting::get('vault_sub_price_week', 50),
+            'vault_sub_price_month' => AppSetting::get('vault_sub_price_month', 100),
+            'vault_sub_week_enabled' => (bool)AppSetting::get('vault_sub_week_enabled', true),
+            'vault_sub_month_enabled' => (bool)AppSetting::get('vault_sub_month_enabled', true),
             'vault_subscription_currency' => AppSetting::get('vault_subscription_currency', 'KES'),
-            'vault_subscription_period_days' => AppSetting::get('vault_subscription_period_days', 30),
             'vault_subscription_package_name' => AppSetting::get('vault_subscription_package_name', 'MovieCat Vault VIP'),
             // Payment Gateways & Credentials (Loaded from Database or Defaults)
             'gateway_mpesa_enabled' => (bool)AppSetting::get('gateway_mpesa_enabled', true),
@@ -963,7 +965,7 @@ class DashboardController extends Controller
             'payhero_api_username' => AppSetting::get('payhero_api_username', 'UPgobQ9LJHp5bYMf6Xup'),
             'payhero_api_password' => AppSetting::get('payhero_api_password', 'zTXs667FbfhZEgcZTv2fO6TjG7PGGSQsZLw3adYa'),
             'payhero_basic_token' => AppSetting::get('payhero_basic_token', 'Basic VVBnb2JROUxKSHA1YllNZjZYdXA6elRYczY2N0ZiZmhaRWdjWlR2MmZPNlRqRzdQR0dTUXNaTHczYWRZYQ=='),
-            'payhero_channel_id' => AppSetting::get('payhero_channel_id', ''),
+            'payhero_channel_id' => AppSetting::get('payhero_channel_id', '14226'),
 
             'gateway_flutterwave_enabled' => (bool)AppSetting::get('gateway_flutterwave_enabled', true),
             'flutterwave_public_key' => AppSetting::get('flutterwave_public_key', 'FLWPUBK_TEST-1104763b64a058c8a937d59821e3fcd5-X'),
@@ -1015,14 +1017,17 @@ class DashboardController extends Controller
         if ($request->has('flutterwave_encryption_key')) AppSetting::set('flutterwave_encryption_key', trim($request->input('flutterwave_encryption_key')), 'flutterwave');
         AppSetting::set('flutterwave_live', (bool)$request->has('flutterwave_live'), 'flutterwave');
 
-        if ($request->filled('vault_subscription_price')) {
-            AppSetting::set('vault_subscription_price', (float)$request->input('vault_subscription_price'), 'subscription');
+        AppSetting::set('vault_sub_week_enabled', (bool)$request->has('vault_sub_week_enabled'), 'subscription');
+        AppSetting::set('vault_sub_month_enabled', (bool)$request->has('vault_sub_month_enabled'), 'subscription');
+
+        if ($request->filled('vault_sub_price_week')) {
+            AppSetting::set('vault_sub_price_week', (float)$request->input('vault_sub_price_week'), 'subscription');
+        }
+        if ($request->filled('vault_sub_price_month')) {
+            AppSetting::set('vault_sub_price_month', (float)$request->input('vault_sub_price_month'), 'subscription');
         }
         if ($request->filled('vault_subscription_currency')) {
             AppSetting::set('vault_subscription_currency', strtoupper(trim($request->input('vault_subscription_currency'))), 'subscription');
-        }
-        if ($request->filled('vault_subscription_period_days')) {
-            AppSetting::set('vault_subscription_period_days', (int)$request->input('vault_subscription_period_days'), 'subscription');
         }
         if ($request->filled('vault_subscription_package_name')) {
             AppSetting::set('vault_subscription_package_name', trim($request->input('vault_subscription_package_name')), 'subscription');

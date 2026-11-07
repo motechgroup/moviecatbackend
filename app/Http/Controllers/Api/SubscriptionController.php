@@ -63,6 +63,7 @@ class SubscriptionController extends Controller
             "username" => "required|string|max:64",
             "gateway" => "required|string|in:mpesa,payhero,flutterwave",
             "phone" => "nullable|string|max:32",
+            "plan" => "nullable|string|in:week,month",
         ]);
 
         $deviceId = $validated["device_id"];
@@ -79,9 +80,17 @@ class SubscriptionController extends Controller
             ], 400);
         }
 
-        $price = (float)AppSetting::get("vault_subscription_price", 100);
+        $plan = $validated["plan"] ?? "month";
         $currency = (string)AppSetting::get("vault_subscription_currency", "KES");
-        $periodDays = (int)AppSetting::get("vault_subscription_period_days", 30);
+        if ($plan === "week") {
+            $price = (float)AppSetting::get("vault_sub_price_week", 50);
+            $periodDays = 7;
+            $packageId = "vault_vip_week";
+        } else {
+            $price = (float)AppSetting::get("vault_sub_price_month", 100);
+            $periodDays = 30;
+            $packageId = "vault_vip_month";
+        }
         $reference = "MC_" . strtoupper(Str::random(10));
 
         // 1. M-Pesa Direct STK Push
@@ -94,7 +103,8 @@ class SubscriptionController extends Controller
             $subscription = Subscription::create([
                 "device_id" => $deviceId,
                 "username" => $username,
-                "package_id" => "vault_vip",
+                "package_id" => $packageId,
+                "period_days" => $periodDays,
                 "gateway" => "mpesa",
                 "amount" => $price,
                 "currency" => $currency,
@@ -135,7 +145,8 @@ class SubscriptionController extends Controller
             $subscription = Subscription::create([
                 "device_id" => $deviceId,
                 "username" => $username,
-                "package_id" => "vault_vip",
+                "package_id" => $packageId,
+                "period_days" => $periodDays,
                 "gateway" => "payhero",
                 "amount" => $price,
                 "currency" => $currency,
@@ -267,7 +278,7 @@ class SubscriptionController extends Controller
                         $sub->update([
                             "status" => "active",
                             "starts_at" => now(),
-                            "expires_at" => now()->addDays($periodDays),
+                            "expires_at" => now()->addDays($sub->period_days ?: ($sub->package_id === 'vault_vip_week' ? 7 : 30)),
                             "metadata" => $callback,
                         ]);
                     } else {
@@ -293,7 +304,7 @@ class SubscriptionController extends Controller
                         $sub->update([
                             "status" => "active",
                             "starts_at" => now(),
-                            "expires_at" => now()->addDays($periodDays),
+                            "expires_at" => now()->addDays($sub->period_days ?: ($sub->package_id === 'vault_vip_week' ? 7 : 30)),
                             "metadata" => $payload,
                         ]);
                     }
@@ -311,7 +322,7 @@ class SubscriptionController extends Controller
                     $sub->update([
                         "status" => "active",
                         "starts_at" => now(),
-                        "expires_at" => now()->addDays($periodDays),
+                        "expires_at" => now()->addDays($sub->period_days ?: ($sub->package_id === 'vault_vip_week' ? 7 : 30)),
                         "metadata" => $payload,
                     ]);
                 }
@@ -385,24 +396,45 @@ class SubscriptionController extends Controller
     {
         // PayHero Credentials
         $basicToken = (string)AppSetting::get("payhero_basic_token", env("PAYHERO_BASIC_AUTH_TOKEN", ""));
-        $channelId = (string)AppSetting::get("payhero_channel_id", env("PAYHERO_CHANNEL_ID", ""));
+        $rawChannel = AppSetting::get("payhero_channel_id", env("PAYHERO_CHANNEL_ID", "14226"));
+        $channelId = (int)$rawChannel;
         $callbackUrl = url("/api/v1/subscription/webhook/payhero");
 
         if (!str_starts_with($basicToken, "Basic ")) {
             $basicToken = "Basic " . $basicToken;
         }
 
+        if ($channelId <= 0) {
+            try {
+                $channelRes = Http::withHeaders([
+                    "Authorization" => $basicToken,
+                    "Accept" => "application/json",
+                ])->timeout(8)->get("https://backend.payhero.co.ke/api/v2/payment_channels?is_active=true");
+
+                if ($channelRes->successful()) {
+                    $chans = $channelRes->json("payment_channels") ?? [];
+                    if (!empty($chans[0]["id"])) {
+                        $channelId = (int)$chans[0]["id"];
+                        AppSetting::set("payhero_channel_id", (string)$channelId, "payhero");
+                    }
+                }
+            } catch (\Throwable $t) {
+                $channelId = 14226;
+            }
+        }
+        if ($channelId <= 0) {
+            $channelId = 14226;
+        }
+
         $payload = [
             "amount" => max(1, $amount),
             "phone_number" => $phone,
+            "channel_id" => $channelId,
             "provider" => "m-pesa",
             "external_reference" => $sub->reference,
             "customer_name" => $username,
             "callback_url" => $callbackUrl,
         ];
-        if (!empty($channelId)) {
-            $payload["channel_id"] = (int)$channelId;
-        }
 
         $res = Http::withHeaders([
             "Authorization" => $basicToken,
@@ -411,7 +443,7 @@ class SubscriptionController extends Controller
         ])->timeout(25)->post("https://backend.payhero.co.ke/api/v2/payments", $payload);
 
         if ($res->failed()) {
-            $err = $res->json("message") ?? $res->json("error") ?? $res->body();
+            $err = $res->json("error_message") ?? $res->json("message") ?? $res->json("error") ?? $res->body();
             throw new \RuntimeException("PayHero request failed: " . $err);
         }
 

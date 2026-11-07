@@ -14,6 +14,7 @@ class Subscription extends Model
         "package_id",
         "gateway",
         "amount",
+        "period_days",
         "currency",
         "reference",
         "checkout_request_id",

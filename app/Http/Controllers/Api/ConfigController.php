@@ -28,10 +28,52 @@ class ConfigController extends Controller
             ? AppSetting::get("admob_ios_rewarded_id", "ca-app-pub-3940256099942544/1712485313")
             : AppSetting::get("admob_android_rewarded_id", "ca-app-pub-3940256099942544/5224354917");
 
-        $price = (float)AppSetting::get("vault_subscription_price", 100);
         $currency = (string)AppSetting::get("vault_subscription_currency", "KES");
-        $periodDays = (int)AppSetting::get("vault_subscription_period_days", 30);
         $packageName = (string)AppSetting::get("vault_subscription_package_name", "MovieCat Vault VIP");
+        $priceWeek = (float)AppSetting::get("vault_sub_price_week", 50);
+        $priceMonth = (float)AppSetting::get("vault_sub_price_month", 100);
+        $weekEnabled = (bool)AppSetting::get("vault_sub_week_enabled", true);
+        $monthEnabled = (bool)AppSetting::get("vault_sub_month_enabled", true);
+
+        $plans = [];
+        if ($weekEnabled) {
+            $plans[] = [
+                "id" => "week",
+                "name" => "1 Week Pass",
+                "label" => "1 Week",
+                "days" => 7,
+                "price" => $priceWeek,
+                "currency" => $currency,
+                "formatted_price" => "{$currency} " . number_format($priceWeek),
+                "subtitle" => "7 Days Offline Access",
+            ];
+        }
+        if ($monthEnabled) {
+            $plans[] = [
+                "id" => "month",
+                "name" => "1 Month Pass",
+                "label" => "1 Month",
+                "days" => 30,
+                "price" => $priceMonth,
+                "currency" => $currency,
+                "formatted_price" => "{$currency} " . number_format($priceMonth),
+                "subtitle" => "30 Days Unlimited Access",
+                "popular" => true,
+            ];
+        }
+        if (empty($plans)) {
+            $plans[] = [
+                "id" => "month",
+                "name" => "1 Month Pass",
+                "label" => "1 Month",
+                "days" => 30,
+                "price" => $priceMonth,
+                "currency" => $currency,
+                "formatted_price" => "{$currency} " . number_format($priceMonth),
+                "subtitle" => "30 Days Unlimited Access",
+                "popular" => true,
+            ];
+        }
 
         $activeSub = Subscription::getActiveFor($deviceId, $username);
 
@@ -94,21 +136,10 @@ class ConfigController extends Controller
             ],
             "subscription" => [
                 "enabled" => (bool)AppSetting::get("vault_subscription_enabled", false),
-                "package" => [
-                    "id" => "vault_vip",
-                    "name" => $packageName,
-                    "price" => $price,
-                    "currency" => $currency,
-                    "formatted_price" => "{$currency} {$price} / {$periodDays} Days",
-                    "period_days" => $periodDays,
-                    "description" => "Watch all downloaded movies & series offline in the Vault anytime, anywhere.",
-                    "perks" => [
-                        "Watch all downloaded movies & series offline",
-                        "Zero buffering & zero mobile data used",
-                        "Ad-free offline theater playback in the Vault",
-                        "Full support for Phone, Tablet & Android TV",
-                    ],
-                ],
+                "package_name" => $packageName,
+                "currency" => $currency,
+                "plans" => $plans,
+                "package" => $plans[count($plans) - 1],
                 "gateways" => $gateways,
                 "user_status" => [
                     "is_active" => $activeSub ? true : false,

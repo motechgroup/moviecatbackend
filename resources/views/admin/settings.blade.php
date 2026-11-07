@@ -80,19 +80,49 @@
                 <span class="font-bold text-white">Enable Vault Offline Subscription Requirement (Shows subscription modal when playing downloads in Vault)</span>
             </label>
 
-            <!-- Single Package Configuration -->
-            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
-                <div class="sm:col-span-2">
-                    <label class="block text-[11px] font-semibold text-slate-300 mb-1">Package Name</label>
-                    <input type="text" name="vault_subscription_package_name" value="{{ $settings['vault_subscription_package_name'] ?? 'MovieCat Vault VIP' }}" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-400">
+            <!-- Subscription Package & Period Plans (1 Week & 1 Month) -->
+            <div class="space-y-3 pt-2">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div class="sm:col-span-2">
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Package Display Name</label>
+                        <input type="text" name="vault_subscription_package_name" value="{{ $settings['vault_subscription_package_name'] ?? 'MovieCat Vault VIP' }}" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-400">
+                    </div>
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-300 mb-1">Currency</label>
+                        <input type="text" name="vault_subscription_currency" value="{{ $settings['vault_subscription_currency'] ?? 'KES' }}" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono uppercase focus:outline-none focus:border-amber-400">
+                    </div>
                 </div>
-                <div>
-                    <label class="block text-[11px] font-semibold text-slate-300 mb-1">Price</label>
-                    <input type="number" step="1" name="vault_subscription_price" value="{{ $settings['vault_subscription_price'] ?? 100 }}" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
-                </div>
-                <div>
-                    <label class="block text-[11px] font-semibold text-slate-300 mb-1">Currency</label>
-                    <input type="text" name="vault_subscription_currency" value="{{ $settings['vault_subscription_currency'] ?? 'KES' }}" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono uppercase focus:outline-none focus:border-amber-400">
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <!-- 1 WEEK PLAN -->
+                    <div class="p-3.5 rounded-xl bg-white/[0.02] border border-white/10 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center gap-2 text-xs text-slate-200 cursor-pointer font-bold">
+                                <input type="checkbox" name="vault_sub_week_enabled" value="1" {{ ($settings['vault_sub_week_enabled'] ?? true) ? 'checked' : '' }} class="w-4 h-4 accent-amber-500 rounded">
+                                <span class="text-white text-xs">1 Week Plan (7 Days)</span>
+                            </label>
+                            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">7 Days</span>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-400 mb-1">Price (KES)</label>
+                            <input type="number" step="1" name="vault_sub_price_week" value="{{ $settings['vault_sub_price_week'] ?? 50 }}" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                        </div>
+                    </div>
+
+                    <!-- 1 MONTH PLAN -->
+                    <div class="p-3.5 rounded-xl bg-white/[0.02] border border-white/10 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center gap-2 text-xs text-slate-200 cursor-pointer font-bold">
+                                <input type="checkbox" name="vault_sub_month_enabled" value="1" {{ ($settings['vault_sub_month_enabled'] ?? true) ? 'checked' : '' }} class="w-4 h-4 accent-amber-500 rounded">
+                                <span class="text-white text-xs">1 Month Plan (30 Days)</span>
+                            </label>
+                            <span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">Best Value • 30 Days</span>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-semibold text-slate-400 mb-1">Price (KES)</label>
+                            <input type="number" step="1" name="vault_sub_price_month" value="{{ $settings['vault_sub_price_month'] ?? 100 }}" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -172,7 +202,7 @@
                             </div>
                             <div>
                                 <label class="block text-[10px] font-semibold text-slate-400 mb-1">Channel ID (Optional)</label>
-                                <input type="text" name="payhero_channel_id" value="{{ $settings['payhero_channel_id'] ?? '' }}" placeholder="Auto / Default" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                                <input type="text" name="payhero_channel_id" value="{{ $settings['payhero_channel_id'] ?? '14226' }}" placeholder="Auto / Default" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
                             </div>
                         </div>
                     </div>
