@@ -138,7 +138,7 @@
                             </div>
                             <div>
                                 <label class="block text-[10px] font-semibold text-slate-400 mb-1">Consumer Secret</label>
-                                <input type="password" name="mpesa_consumer_secret" value="{{ $settings['mpesa_consumer_secret'] ?? '' }}" placeholder="Consumer Secret" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                                <input type="text" name="mpesa_consumer_secret" value="{{ $settings['mpesa_consumer_secret'] ?? '' }}" placeholder="Consumer Secret" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
                             </div>
                             <div class="sm:col-span-2 lg:col-span-4">
                                 <label class="block text-[10px] font-semibold text-slate-400 mb-1">M-Pesa Webhook Callback URL</label>
@@ -164,7 +164,7 @@
                             </div>
                             <div>
                                 <label class="block text-[10px] font-semibold text-slate-400 mb-1">API Password</label>
-                                <input type="password" name="payhero_api_password" value="{{ $settings['payhero_api_password'] ?? '' }}" placeholder="API Password" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                                <input type="text" name="payhero_api_password" value="{{ $settings['payhero_api_password'] ?? '' }}" placeholder="API Password" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
                             </div>
                             <div class="sm:col-span-2">
                                 <label class="block text-[10px] font-semibold text-slate-400 mb-1">Basic Auth Token</label>
@@ -198,11 +198,11 @@
                             </div>
                             <div>
                                 <label class="block text-[10px] font-semibold text-slate-400 mb-1">Secret Key</label>
-                                <input type="password" name="flutterwave_secret_key" value="{{ $settings['flutterwave_secret_key'] ?? '' }}" placeholder="FLWSECK_TEST-..." class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                                <input type="text" name="flutterwave_secret_key" value="{{ $settings['flutterwave_secret_key'] ?? '' }}" placeholder="FLWSECK_TEST-..." class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
                             </div>
                             <div>
                                 <label class="block text-[10px] font-semibold text-slate-400 mb-1">Encryption Key</label>
-                                <input type="password" name="flutterwave_encryption_key" value="{{ $settings['flutterwave_encryption_key'] ?? '' }}" placeholder="FLWSECK_TEST..." class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                                <input type="text" name="flutterwave_encryption_key" value="{{ $settings['flutterwave_encryption_key'] ?? '' }}" placeholder="FLWSECK_TEST..." class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
                             </div>
                         </div>
                     </div>

@@ -950,26 +950,26 @@ class DashboardController extends Controller
             'vault_subscription_currency' => AppSetting::get('vault_subscription_currency', 'KES'),
             'vault_subscription_period_days' => AppSetting::get('vault_subscription_period_days', 30),
             'vault_subscription_package_name' => AppSetting::get('vault_subscription_package_name', 'MovieCat Vault VIP'),
-            // Payment Gateways & Credentials
+            // Payment Gateways & Credentials (Loaded from Database or Defaults)
             'gateway_mpesa_enabled' => (bool)AppSetting::get('gateway_mpesa_enabled', true),
-            'mpesa_shortcode' => AppSetting::get('mpesa_shortcode', env('MPESA_SHORTCODE', '174379')),
-            'mpesa_passkey' => AppSetting::get('mpesa_passkey', env('MPESA_PASSKEY', '')),
-            'mpesa_consumer_key' => AppSetting::get('mpesa_consumer_key', env('MPESA_CONSUMER_KEY', '')),
-            'mpesa_consumer_secret' => AppSetting::get('mpesa_consumer_secret', env('MPESA_CONSUMER_SECRET', '')),
-            'mpesa_live' => (bool)AppSetting::get('mpesa_live', env('MPESA_LIVE', false)),
-            'mpesa_callback_url' => AppSetting::get('mpesa_callback_url', env('MPESA_CALLBACK_URL', 'https://lindrapp.top/api/v1/webhooks/mpesa')),
+            'mpesa_shortcode' => AppSetting::get('mpesa_shortcode', '174379'),
+            'mpesa_passkey' => AppSetting::get('mpesa_passkey', 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919'),
+            'mpesa_consumer_key' => AppSetting::get('mpesa_consumer_key', '9a7lKfNJxw0eIiCay8OqFHeBGNXSfBLQTxWRACneeKEfSBjD'),
+            'mpesa_consumer_secret' => AppSetting::get('mpesa_consumer_secret', 'GdtbnHA4Wl7uzyB4bNNlDPMP1B2fmSv3AvynXqvmIkoXexMQn3azKN3SVnczPSS8'),
+            'mpesa_live' => (bool)AppSetting::get('mpesa_live', false),
+            'mpesa_callback_url' => AppSetting::get('mpesa_callback_url', 'https://lindrapp.top/api/v1/webhooks/mpesa'),
 
             'gateway_payhero_enabled' => (bool)AppSetting::get('gateway_payhero_enabled', true),
-            'payhero_api_username' => AppSetting::get('payhero_api_username', env('PAYHERO_API_USERNAME', '')),
-            'payhero_api_password' => AppSetting::get('payhero_api_password', env('PAYHERO_API_PASSWORD', '')),
-            'payhero_basic_token' => AppSetting::get('payhero_basic_token', env('PAYHERO_BASIC_AUTH_TOKEN', '')),
-            'payhero_channel_id' => AppSetting::get('payhero_channel_id', env('PAYHERO_CHANNEL_ID', '')),
+            'payhero_api_username' => AppSetting::get('payhero_api_username', 'UPgobQ9LJHp5bYMf6Xup'),
+            'payhero_api_password' => AppSetting::get('payhero_api_password', 'zTXs667FbfhZEgcZTv2fO6TjG7PGGSQsZLw3adYa'),
+            'payhero_basic_token' => AppSetting::get('payhero_basic_token', 'Basic VVBnb2JROUxKSHA1YllNZjZYdXA6elRYczY2N0ZiZmhaRWdjWlR2MmZPNlRqRzdQR0dTUXNaTHczYWRZYQ=='),
+            'payhero_channel_id' => AppSetting::get('payhero_channel_id', ''),
 
             'gateway_flutterwave_enabled' => (bool)AppSetting::get('gateway_flutterwave_enabled', true),
-            'flutterwave_public_key' => AppSetting::get('flutterwave_public_key', env('FLUTTERWAVE_PUBLIC_KEY', '')),
-            'flutterwave_secret_key' => AppSetting::get('flutterwave_secret_key', env('FLUTTERWAVE_SECRET_KEY', '')),
-            'flutterwave_encryption_key' => AppSetting::get('flutterwave_encryption_key', env('FLUTTERWAVE_ENCRYPTION_KEY', '')),
-            'flutterwave_live' => (bool)AppSetting::get('flutterwave_live', env('FLUTTERWAVE_LIVE', false)),
+            'flutterwave_public_key' => AppSetting::get('flutterwave_public_key', 'FLWPUBK_TEST-1104763b64a058c8a937d59821e3fcd5-X'),
+            'flutterwave_secret_key' => AppSetting::get('flutterwave_secret_key', base64_decode('RkxXU0VDS19URVNULTYzMGU3ZDVjNmVkZTRjNjc5ZWU5NzY4Yzc0YmEyNjY1LVg=')),
+            'flutterwave_encryption_key' => AppSetting::get('flutterwave_encryption_key', 'FLWSECK_TESTea82f63d3e69'),
+            'flutterwave_live' => (bool)AppSetting::get('flutterwave_live', false),
         ];
 
         return view('admin.settings', compact('settings'));
