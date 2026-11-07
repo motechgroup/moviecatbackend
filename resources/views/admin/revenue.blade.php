@@ -273,6 +273,10 @@
                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
                                         Failed
                                     </span>
+                                @elseif($sub->status === 'revoked')
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-rose-600/30 text-rose-300 border border-rose-500/50">
+                                        Revoked
+                                    </span>
                                 @else
                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-slate-700/40 text-slate-400 border border-white/5">
                                         Expired

@@ -60,12 +60,14 @@ class RevenueController extends Controller
             $query->where("status", "pending");
         } elseif ($statusFilter === "expired") {
             $query->where(function ($q) {
-                $q->where("status", "expired")->orWhere(function ($sq) {
+                $q->whereIn("status", ["expired", "revoked"])->orWhere(function ($sq) {
                     $sq->where("status", "active")->where("expires_at", "<=", now());
                 });
             });
         } elseif ($statusFilter === "failed") {
             $query->where("status", "failed");
+        } elseif ($statusFilter === "revoked") {
+            $query->where("status", "revoked");
         }
 
         $gatewayFilter = $request->input("gateway", "all");
@@ -152,12 +154,28 @@ class RevenueController extends Controller
     {
         $sub = Subscription::findOrFail($id);
         $sub->update([
-            "status" => "expired",
-            "expires_at" => now(),
+            "status" => "revoked",
+            "expires_at" => now()->subDay(),
             "metadata" => array_merge($sub->metadata ?? [], [
                 "revoked_by_admin" => true,
                 "revoked_at" => now()->toIso8601String(),
             ]),
+        ]);
+
+        // Revoke any other active subscriptions for this device or username
+        Subscription::where(function ($q) use ($sub) {
+            if (!empty($sub->device_id)) {
+                $q->orWhere("device_id", $sub->device_id);
+            }
+            if (!empty($sub->username)) {
+                $q->orWhere("username", $sub->username);
+            }
+        })
+        ->where("id", "!=", $sub->id)
+        ->where("status", "active")
+        ->update([
+            "status" => "revoked",
+            "expires_at" => now()->subDay(),
         ]);
 
         return redirect()->back()->with("success", "Subscription for {$sub->username} has been revoked.");
