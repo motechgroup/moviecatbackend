@@ -172,7 +172,7 @@
                             </div>
                             <div class="sm:col-span-2 lg:col-span-4">
                                 <label class="block text-[10px] font-semibold text-slate-400 mb-1">M-Pesa Webhook Callback URL</label>
-                                <input type="text" name="mpesa_callback_url" value="{{ $settings['mpesa_callback_url'] ?? 'https://lindrapp.top/api/v1/webhooks/mpesa' }}" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                                <input type="text" name="mpesa_callback_url" value="{{ $settings['mpesa_callback_url'] ?? 'https://moviecat.djstube.com/api/v1/subscription/webhook/mpesa' }}" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
                             </div>
                         </div>
                     </div>

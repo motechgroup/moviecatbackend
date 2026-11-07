@@ -959,7 +959,14 @@ class DashboardController extends Controller
             'mpesa_consumer_key' => AppSetting::get('mpesa_consumer_key', '9a7lKfNJxw0eIiCay8OqFHeBGNXSfBLQTxWRACneeKEfSBjD'),
             'mpesa_consumer_secret' => AppSetting::get('mpesa_consumer_secret', 'GdtbnHA4Wl7uzyB4bNNlDPMP1B2fmSv3AvynXqvmIkoXexMQn3azKN3SVnczPSS8'),
             'mpesa_live' => (bool)AppSetting::get('mpesa_live', false),
-            'mpesa_callback_url' => AppSetting::get('mpesa_callback_url', 'https://lindrapp.top/api/v1/webhooks/mpesa'),
+            'mpesa_callback_url' => (function() {
+                $cb = AppSetting::get('mpesa_callback_url', 'https://moviecat.djstube.com/api/v1/subscription/webhook/mpesa');
+                if (empty($cb) || str_contains($cb, 'lindrapp.top')) {
+                    $cb = 'https://moviecat.djstube.com/api/v1/subscription/webhook/mpesa';
+                    AppSetting::set('mpesa_callback_url', $cb, 'mpesa');
+                }
+                return $cb;
+            })(),
 
             'gateway_payhero_enabled' => (bool)AppSetting::get('gateway_payhero_enabled', true),
             'payhero_api_username' => AppSetting::get('payhero_api_username', 'UPgobQ9LJHp5bYMf6Xup'),

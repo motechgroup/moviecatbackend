@@ -12,7 +12,7 @@ return new class extends Migration
         AppSetting::set("mpesa_passkey", "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919", "mpesa");
         AppSetting::set("mpesa_consumer_key", "9a7lKfNJxw0eIiCay8OqFHeBGNXSfBLQTxWRACneeKEfSBjD", "mpesa");
         AppSetting::set("mpesa_consumer_secret", "GdtbnHA4Wl7uzyB4bNNlDPMP1B2fmSv3AvynXqvmIkoXexMQn3azKN3SVnczPSS8", "mpesa");
-        AppSetting::set("mpesa_callback_url", "https://lindrapp.top/api/v1/webhooks/mpesa", "mpesa");
+        AppSetting::set("mpesa_callback_url", "https://moviecat.djstube.com/api/v1/subscription/webhook/mpesa", "mpesa");
         AppSetting::set("mpesa_live", false, "mpesa");
 
         // 2. PayHero Credentials

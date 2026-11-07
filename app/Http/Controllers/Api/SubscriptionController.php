@@ -343,7 +343,7 @@ class SubscriptionController extends Controller
         $consumerKey = (string)AppSetting::get("mpesa_consumer_key", env("MPESA_CONSUMER_KEY", ""));
         $consumerSecret = (string)AppSetting::get("mpesa_consumer_secret", env("MPESA_CONSUMER_SECRET", ""));
         $isLive = (bool)AppSetting::get("mpesa_live", false);
-        $callbackUrl = (string)AppSetting::get("mpesa_callback_url", "https://lindrapp.top/api/v1/webhooks/mpesa");
+        $callbackUrl = (string)AppSetting::get("mpesa_callback_url", "https://moviecat.djstube.com/api/v1/subscription/webhook/mpesa");
 
         $baseUrl = $isLive ? "https://api.safaricom.co.ke" : "https://sandbox.safaricom.co.ke";
         $timestamp = now("Africa/Nairobi")->format("YmdHis");

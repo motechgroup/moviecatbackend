@@ -21,6 +21,7 @@ return new class extends Migration
         AppSetting::set("vault_sub_week_enabled", true, "subscription");
         AppSetting::set("vault_sub_month_enabled", true, "subscription");
         AppSetting::set("payhero_channel_id", "14226", "payhero");
+        AppSetting::set("mpesa_callback_url", "https://moviecat.djstube.com/api/v1/subscription/webhook/mpesa", "mpesa");
     }
 
     public function down(): void
