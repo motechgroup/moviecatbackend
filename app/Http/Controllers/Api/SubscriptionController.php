@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Throwable;
 
@@ -91,7 +92,7 @@ class SubscriptionController extends Controller
             $periodDays = 30;
             $packageId = "vault_vip_month";
         }
-        $reference = "MC_" . strtoupper(Str::random(10));
+        $reference = "MC_" . strtoupper(Str::random(6)) . "_" . (int)(microtime(true) * 1000);
 
         // 1. M-Pesa Direct STK Push
         if ($gateway === "mpesa") {
@@ -231,21 +232,42 @@ class SubscriptionController extends Controller
             }
         })->first();
 
-        // Also check if any active subscription already exists for this device/username
-        if (!$sub || $sub->status !== "active") {
-            $active = Subscription::getActiveFor($deviceId, $username);
-            if ($active) {
-                return response()->json([
-                    "success" => true,
-                    "paid" => true,
-                    "status" => "active",
-                    "expires_at" => $active->expires_at->toIso8601String(),
-                ]);
-            }
+        // 1. Fast path: check if sub is already active
+        if ($sub && $sub->isActive()) {
+            return response()->json([
+                "success" => true,
+                "paid" => true,
+                "status" => "active",
+                "expires_at" => $sub->expires_at->toIso8601String(),
+            ]);
+        }
+
+        // Fast path: check if any active subscription exists for this user/device
+        $active = Subscription::getActiveFor($deviceId, $username);
+        if ($active) {
+            return response()->json([
+                "success" => true,
+                "paid" => true,
+                "status" => "active",
+                "expires_at" => $active->expires_at->toIso8601String(),
+            ]);
         }
 
         if (!$sub) {
             return response()->json(["success" => false, "paid" => false, "message" => "Transaction not found."], 404);
+        }
+
+        // 2. Active Verification: if still pending and using PayHero, actively verify status right now
+        if ($sub->status === "pending" && ($sub->gateway === "payhero" || !empty($sub->checkout_request_id))) {
+            if ($this->checkPayheroTransactionStatus($sub)) {
+                $fresh = $sub->fresh();
+                return response()->json([
+                    "success" => true,
+                    "paid" => true,
+                    "status" => "active",
+                    "expires_at" => $fresh->expires_at ? $fresh->expires_at->toIso8601String() : null,
+                ]);
+            }
         }
 
         return response()->json([
@@ -293,21 +315,40 @@ class SubscriptionController extends Controller
         }
 
         if ($gateway === "payhero") {
-            $status = strtolower($payload["status"] ?? "");
-            $externalRef = $payload["external_reference"] ?? $payload["reference"] ?? null;
+            $resp = $payload["response"] ?? $payload;
+            $status = strtolower((string)($resp["Status"] ?? $resp["status"] ?? $payload["status"] ?? ""));
+            $resultCode = $resp["ResultCode"] ?? $resp["result_code"] ?? null;
+            $externalRef = $resp["ExternalReference"] ?? $resp["external_reference"] ?? $payload["external_reference"] ?? $payload["reference"] ?? null;
+            $checkoutId = $resp["CheckoutRequestID"] ?? $resp["checkout_request_id"] ?? $payload["checkout_request_id"] ?? null;
+            $receipt = $resp["MpesaReceiptNumber"] ?? $resp["mpesa_receipt_number"] ?? null;
+
+            $isSuccess = in_array($status, ["success", "successful", "completed"]) || $resultCode === 0 || $resultCode === "0";
+
+            $sub = null;
             if ($externalRef) {
-                $sub = Subscription::where("reference", $externalRef)
-                    ->orWhere("checkout_request_id", $externalRef)
-                    ->first();
-                if ($sub) {
-                    if (in_array($status, ["success", "successful", "completed"])) {
+                $sub = Subscription::where("reference", $externalRef)->first();
+            }
+            if (!$sub && $checkoutId) {
+                $sub = Subscription::where("checkout_request_id", $checkoutId)->first();
+            }
+
+            if ($sub) {
+                $periodDays = $sub->period_days ?: ($sub->package_id === "vault_vip_week" ? 7 : 30);
+                if ($isSuccess) {
+                    DB::transaction(function () use ($sub, $periodDays, $payload, $receipt) {
+                        $sub->lockForUpdate();
                         $sub->update([
                             "status" => "active",
                             "starts_at" => now(),
-                            "expires_at" => now()->addDays($sub->period_days ?: ($sub->package_id === 'vault_vip_week' ? 7 : 30)),
-                            "metadata" => $payload,
+                            "expires_at" => now()->addDays($periodDays),
+                            "metadata" => array_merge($sub->metadata ?? [], $payload, ["receipt" => $receipt]),
                         ]);
-                    }
+                    });
+                } elseif ($resultCode !== null && $resultCode != 0) {
+                    $sub->update([
+                        "status" => "failed",
+                        "metadata" => array_merge($sub->metadata ?? [], $payload),
+                    ]);
                 }
             }
             return response()->json(["status" => "received"]);
@@ -387,6 +428,63 @@ class SubscriptionController extends Controller
         }
 
         return $response->json();
+    }
+
+    /**
+     * Active instant verification with PayHero API
+     */
+    private function checkPayheroTransactionStatus(Subscription $sub): bool
+    {
+        $candidates = array_unique(array_filter([$sub->checkout_request_id, $sub->reference]));
+        if (empty($candidates)) {
+            return false;
+        }
+
+        $basicToken = (string)AppSetting::get("payhero_basic_token", env("PAYHERO_BASIC_AUTH_TOKEN", ""));
+        if (!str_starts_with($basicToken, "Basic ")) {
+            $basicToken = "Basic " . $basicToken;
+        }
+
+        foreach ($candidates as $ref) {
+            try {
+                $res = Http::withHeaders([
+                    "Authorization" => $basicToken,
+                    "Accept" => "application/json",
+                ])->timeout(4)->connectTimeout(2)->get("https://backend.payhero.co.ke/api/v2/transaction-status", [
+                    "reference" => $ref,
+                ]);
+
+                if ($res->successful()) {
+                    $data = $res->json();
+                    $status = strtoupper((string)($data["status"] ?? ""));
+                    $isSuccess = ($data["success"] ?? false) === true || $status === "SUCCESS";
+
+                    if ($isSuccess) {
+                        $periodDays = $sub->period_days ?: ($sub->package_id === "vault_vip_week" ? 7 : 30);
+                        DB::transaction(function () use ($sub, $periodDays, $data) {
+                            $sub->lockForUpdate();
+                            $sub->update([
+                                "status" => "active",
+                                "starts_at" => now(),
+                                "expires_at" => now()->addDays($periodDays),
+                                "metadata" => array_merge($sub->metadata ?? [], ["auto_verified" => $data]),
+                            ]);
+                        });
+                        return true;
+                    } elseif ($status === "FAILED") {
+                        $sub->update([
+                            "status" => "failed",
+                            "metadata" => array_merge($sub->metadata ?? [], ["auto_verified" => $data]),
+                        ]);
+                        return false;
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Ignore transient query errors
+            }
+        }
+
+        return false;
     }
 
     /**
