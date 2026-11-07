@@ -58,6 +58,75 @@
             </div>
         </div>
 
+        <!-- Vault Offline Subscription & Payment Gateways -->
+        <div class="glass-panel p-6 sm:p-7 rounded-3xl space-y-5 border border-amber-500/20 bg-amber-500/[0.02]">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+                        Vault Offline Subscription & Payment Gateways
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">Online streaming remains 100% free. When enabled, playing downloaded media in the Vault requires an active subscription.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full {{ ($settings['vault_subscription_enabled'] ?? false) ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-slate-700/40 text-slate-400' }}">
+                        {{ ($settings['vault_subscription_enabled'] ?? false) ? 'ACTIVE (RESTRICTED)' : 'DISABLED (FREE PLAY)' }}
+                    </span>
+                </div>
+            </div>
+
+            <label class="flex items-center gap-2.5 text-xs text-amber-200 cursor-pointer p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <input type="checkbox" name="vault_subscription_enabled" value="1" {{ ($settings['vault_subscription_enabled'] ?? false) ? 'checked' : '' }} class="w-4 h-4 accent-amber-500 rounded">
+                <span class="font-bold text-white">Enable Vault Offline Subscription Requirement (Shows subscription modal when playing downloads in Vault)</span>
+            </label>
+
+            <!-- Single Package Configuration -->
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-2">
+                <div class="sm:col-span-2">
+                    <label class="block text-[11px] font-semibold text-slate-300 mb-1">Package Name</label>
+                    <input type="text" name="vault_subscription_package_name" value="{{ $settings['vault_subscription_package_name'] ?? 'MovieCat Vault VIP' }}" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-400">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-300 mb-1">Price</label>
+                    <input type="number" step="1" name="vault_subscription_price" value="{{ $settings['vault_subscription_price'] ?? 100 }}" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-300 mb-1">Currency</label>
+                    <input type="text" name="vault_subscription_currency" value="{{ $settings['vault_subscription_currency'] ?? 'KES' }}" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 font-mono uppercase focus:outline-none focus:border-amber-400">
+                </div>
+            </div>
+
+            <!-- Enabled Payment Gateways -->
+            <div class="pt-3 border-t border-white/5 space-y-2">
+                <p class="text-xs font-semibold text-slate-200">Active Payment Gateways in Mobile & TV App:</p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <label class="flex items-center gap-2.5 p-3 rounded-xl bg-white/[0.02] border border-white/10 text-xs text-slate-200 cursor-pointer">
+                        <input type="checkbox" name="gateway_mpesa_enabled" value="1" {{ ($settings['gateway_mpesa_enabled'] ?? true) ? 'checked' : '' }} class="w-4 h-4 accent-emerald-500 rounded">
+                        <div>
+                            <span class="font-bold text-white block">M-Pesa STK Push</span>
+                            <span class="text-[10px] text-slate-400">Direct Safaricom prompt</span>
+                        </div>
+                    </label>
+
+                    <label class="flex items-center gap-2.5 p-3 rounded-xl bg-white/[0.02] border border-white/10 text-xs text-slate-200 cursor-pointer">
+                        <input type="checkbox" name="gateway_payhero_enabled" value="1" {{ ($settings['gateway_payhero_enabled'] ?? true) ? 'checked' : '' }} class="w-4 h-4 accent-emerald-500 rounded">
+                        <div>
+                            <span class="font-bold text-white block">PayHero</span>
+                            <span class="text-[10px] text-slate-400">M-Pesa & Mobile Money</span>
+                        </div>
+                    </label>
+
+                    <label class="flex items-center gap-2.5 p-3 rounded-xl bg-white/[0.02] border border-white/10 text-xs text-slate-200 cursor-pointer">
+                        <input type="checkbox" name="gateway_flutterwave_enabled" value="1" {{ ($settings['gateway_flutterwave_enabled'] ?? true) ? 'checked' : '' }} class="w-4 h-4 accent-emerald-500 rounded">
+                        <div>
+                            <span class="font-bold text-white block">Flutterwave</span>
+                            <span class="text-[10px] text-slate-400">East Africa (KE, UG, TZ, RW)</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
         <!-- Feature Toggles -->
         <div class="glass-panel p-6 sm:p-7 rounded-3xl space-y-4">
             <h2 class="text-base font-bold text-white flex items-center gap-2">

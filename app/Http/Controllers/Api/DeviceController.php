@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\AppSetting;
 use App\Models\Device;
+use App\Models\Subscription;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Throwable;
@@ -125,6 +126,9 @@ class DeviceController extends Controller
         $adsEnabled = (bool)AppSetting::get('ads_enabled', true);
         $downloadsEnabled = (bool)AppSetting::get('feature_downloads_enabled', true);
 
+        $vaultSubEnabled = (bool)AppSetting::get('vault_subscription_enabled', false);
+        $activeSub = Subscription::getActiveFor($deviceId, $deviceUsername);
+
         return response()->json([
             'success' => true,
             'device' => [
@@ -139,6 +143,11 @@ class DeviceController extends Controller
             ],
             'features' => [
                 'downloads' => $downloadsEnabled,
+            ],
+            'subscription' => [
+                'enabled' => $vaultSubEnabled,
+                'is_active' => $activeSub ? true : false,
+                'expires_at' => $activeSub ? $activeSub->expires_at->toIso8601String() : null,
             ],
         ]);
     }

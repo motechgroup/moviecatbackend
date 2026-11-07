@@ -945,6 +945,14 @@ class DashboardController extends Controller
             'feature_bulk_download' => (bool)AppSetting::get('feature_bulk_download', true),
             'feature_similar_series' => (bool)AppSetting::get('feature_similar_series', true),
             'feature_cloud_sync' => (bool)AppSetting::get('feature_cloud_sync', true),
+            'vault_subscription_enabled' => (bool)AppSetting::get('vault_subscription_enabled', false),
+            'vault_subscription_price' => AppSetting::get('vault_subscription_price', 100),
+            'vault_subscription_currency' => AppSetting::get('vault_subscription_currency', 'KES'),
+            'vault_subscription_period_days' => AppSetting::get('vault_subscription_period_days', 30),
+            'vault_subscription_package_name' => AppSetting::get('vault_subscription_package_name', 'MovieCat Vault VIP'),
+            'gateway_mpesa_enabled' => (bool)AppSetting::get('gateway_mpesa_enabled', true),
+            'gateway_payhero_enabled' => (bool)AppSetting::get('gateway_payhero_enabled', true),
+            'gateway_flutterwave_enabled' => (bool)AppSetting::get('gateway_flutterwave_enabled', true),
         ];
 
         return view('admin.settings', compact('settings'));
@@ -964,6 +972,24 @@ class DashboardController extends Controller
         AppSetting::set('feature_bulk_download', (bool)$request->has('feature_bulk_download'), 'features');
         AppSetting::set('feature_similar_series', (bool)$request->has('feature_similar_series'), 'features');
         AppSetting::set('feature_cloud_sync', (bool)$request->has('feature_cloud_sync'), 'features');
+
+        AppSetting::set('vault_subscription_enabled', (bool)$request->has('vault_subscription_enabled'), 'subscription');
+        AppSetting::set('gateway_mpesa_enabled', (bool)$request->has('gateway_mpesa_enabled'), 'gateways');
+        AppSetting::set('gateway_payhero_enabled', (bool)$request->has('gateway_payhero_enabled'), 'gateways');
+        AppSetting::set('gateway_flutterwave_enabled', (bool)$request->has('gateway_flutterwave_enabled'), 'gateways');
+
+        if ($request->filled('vault_subscription_price')) {
+            AppSetting::set('vault_subscription_price', (float)$request->input('vault_subscription_price'), 'subscription');
+        }
+        if ($request->filled('vault_subscription_currency')) {
+            AppSetting::set('vault_subscription_currency', strtoupper(trim($request->input('vault_subscription_currency'))), 'subscription');
+        }
+        if ($request->filled('vault_subscription_period_days')) {
+            AppSetting::set('vault_subscription_period_days', (int)$request->input('vault_subscription_period_days'), 'subscription');
+        }
+        if ($request->filled('vault_subscription_package_name')) {
+            AppSetting::set('vault_subscription_package_name', trim($request->input('vault_subscription_package_name')), 'subscription');
+        }
 
         if (!empty($data['announcement_text'])) {
             AppSetting::set('announcement_text', $data['announcement_text'], 'general');

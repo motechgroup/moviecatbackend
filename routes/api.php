@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\ConfigController;
 use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\MediaController;
 use App\Http\Controllers\Api\SyncController;
+use App\Http\Controllers\Api\SubscriptionController;
 use App\Http\Controllers\Api\TelemetryController;
 use Illuminate\Support\Facades\Route;
 
@@ -58,4 +59,10 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     Route::post('/telemetry/error', [TelemetryController::class, 'recordAppError'])->middleware('throttle:60,1');
     Route::post('/telemetry/download', [TelemetryController::class, 'recordDownload'])->middleware('throttle:60,1');
     Route::post('/telemetry/downloads/sync', [TelemetryController::class, 'syncVaultDownloads'])->middleware('throttle:60,1');
+
+    // Vault Subscription & East Africa Payment Gateways (M-Pesa, PayHero, Flutterwave)
+    Route::get('/subscription/status', [SubscriptionController::class, 'status']);
+    Route::post('/subscription/pay', [SubscriptionController::class, 'pay'])->middleware('throttle:20,1');
+    Route::get('/subscription/query', [SubscriptionController::class, 'query'])->middleware('throttle:60,1');
+    Route::post('/subscription/webhook/{gateway}', [SubscriptionController::class, 'webhook']);
 });
