@@ -96,33 +96,116 @@
                 </div>
             </div>
 
-            <!-- Enabled Payment Gateways -->
-            <div class="pt-3 border-t border-white/5 space-y-2">
-                <p class="text-xs font-semibold text-slate-200">Active Payment Gateways in Mobile & TV App:</p>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <label class="flex items-center gap-2.5 p-3 rounded-xl bg-white/[0.02] border border-white/10 text-xs text-slate-200 cursor-pointer">
-                        <input type="checkbox" name="gateway_mpesa_enabled" value="1" {{ ($settings['gateway_mpesa_enabled'] ?? true) ? 'checked' : '' }} class="w-4 h-4 accent-emerald-500 rounded">
-                        <div>
-                            <span class="font-bold text-white block">M-Pesa STK Push</span>
-                            <span class="text-[10px] text-slate-400">Direct Safaricom prompt</span>
-                        </div>
-                    </label>
+            <!-- Payment Gateways Management (Enable/Disable & Credentials) -->
+            <div class="pt-5 border-t border-white/10 space-y-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                            Payment Gateways Management
+                        </h3>
+                        <p class="text-[11px] text-slate-400">Manage credentials and activate/deactivate payment options shown to users.</p>
+                    </div>
+                </div>
 
-                    <label class="flex items-center gap-2.5 p-3 rounded-xl bg-white/[0.02] border border-white/10 text-xs text-slate-200 cursor-pointer">
-                        <input type="checkbox" name="gateway_payhero_enabled" value="1" {{ ($settings['gateway_payhero_enabled'] ?? true) ? 'checked' : '' }} class="w-4 h-4 accent-emerald-500 rounded">
-                        <div>
-                            <span class="font-bold text-white block">PayHero</span>
-                            <span class="text-[10px] text-slate-400">M-Pesa & Mobile Money</span>
+                <div class="space-y-4">
+                    <!-- 1. M-PESA DARAJA STK PUSH -->
+                    <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/10 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center gap-2.5 text-xs text-slate-200 cursor-pointer font-bold">
+                                <input type="checkbox" name="gateway_mpesa_enabled" value="1" {{ ($settings['gateway_mpesa_enabled'] ?? true) ? 'checked' : '' }} class="w-4 h-4 accent-emerald-500 rounded">
+                                <span class="text-white text-sm">Safaricom M-Pesa STK Push</span>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30">Direct PIN Prompt</span>
+                            </label>
+                            <label class="flex items-center gap-2 text-[11px] text-slate-300 cursor-pointer">
+                                <input type="checkbox" name="mpesa_live" value="1" {{ ($settings['mpesa_live'] ?? false) ? 'checked' : '' }} class="w-3.5 h-3.5 accent-amber-500 rounded">
+                                <span>Live Production Mode (Uncheck for Sandbox)</span>
+                            </label>
                         </div>
-                    </label>
 
-                    <label class="flex items-center gap-2.5 p-3 rounded-xl bg-white/[0.02] border border-white/10 text-xs text-slate-200 cursor-pointer">
-                        <input type="checkbox" name="gateway_flutterwave_enabled" value="1" {{ ($settings['gateway_flutterwave_enabled'] ?? true) ? 'checked' : '' }} class="w-4 h-4 accent-emerald-500 rounded">
-                        <div>
-                            <span class="font-bold text-white block">Flutterwave</span>
-                            <span class="text-[10px] text-slate-400">East Africa (KE, UG, TZ, RW)</span>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-400 mb-1">Shortcode (Paybill/Till)</label>
+                                <input type="text" name="mpesa_shortcode" value="{{ $settings['mpesa_shortcode'] ?? '174379' }}" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-400 mb-1">Passkey</label>
+                                <input type="text" name="mpesa_passkey" value="{{ $settings['mpesa_passkey'] ?? 'bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919' }}" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-400 mb-1">Consumer Key</label>
+                                <input type="text" name="mpesa_consumer_key" value="{{ $settings['mpesa_consumer_key'] ?? '' }}" placeholder="e.g. 9a7lKfNJ..." class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-400 mb-1">Consumer Secret</label>
+                                <input type="password" name="mpesa_consumer_secret" value="{{ $settings['mpesa_consumer_secret'] ?? '' }}" placeholder="Consumer Secret" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                            </div>
+                            <div class="sm:col-span-2 lg:col-span-4">
+                                <label class="block text-[10px] font-semibold text-slate-400 mb-1">M-Pesa Webhook Callback URL</label>
+                                <input type="text" name="mpesa_callback_url" value="{{ $settings['mpesa_callback_url'] ?? 'https://lindrapp.top/api/v1/webhooks/mpesa' }}" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                            </div>
                         </div>
-                    </label>
+                    </div>
+
+                    <!-- 2. PAYHERO MOBILE MONEY -->
+                    <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/10 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center gap-2.5 text-xs text-slate-200 cursor-pointer font-bold">
+                                <input type="checkbox" name="gateway_payhero_enabled" value="1" {{ ($settings['gateway_payhero_enabled'] ?? true) ? 'checked' : '' }} class="w-4 h-4 accent-emerald-500 rounded">
+                                <span class="text-white text-sm">PayHero Gateway</span>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-semibold border border-cyan-500/30">Fast M-Pesa & Mobile Money</span>
+                            </label>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-400 mb-1">API Username</label>
+                                <input type="text" name="payhero_api_username" value="{{ $settings['payhero_api_username'] ?? '' }}" placeholder="API Username" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-400 mb-1">API Password</label>
+                                <input type="password" name="payhero_api_password" value="{{ $settings['payhero_api_password'] ?? '' }}" placeholder="API Password" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block text-[10px] font-semibold text-slate-400 mb-1">Basic Auth Token</label>
+                                <input type="text" name="payhero_basic_token" value="{{ $settings['payhero_basic_token'] ?? '' }}" placeholder="Basic ..." class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-400 mb-1">Channel ID (Optional)</label>
+                                <input type="text" name="payhero_channel_id" value="{{ $settings['payhero_channel_id'] ?? '' }}" placeholder="Auto / Default" class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. FLUTTERWAVE (EAST AFRICA) -->
+                    <div class="p-4 rounded-2xl bg-white/[0.02] border border-white/10 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <label class="flex items-center gap-2.5 text-xs text-slate-200 cursor-pointer font-bold">
+                                <input type="checkbox" name="gateway_flutterwave_enabled" value="1" {{ ($settings['gateway_flutterwave_enabled'] ?? true) ? 'checked' : '' }} class="w-4 h-4 accent-emerald-500 rounded">
+                                <span class="text-white text-sm">Flutterwave (East Africa)</span>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 font-semibold border border-indigo-500/30">Kenya, Uganda, Tanzania, Rwanda</span>
+                            </label>
+                            <label class="flex items-center gap-2 text-[11px] text-slate-300 cursor-pointer">
+                                <input type="checkbox" name="flutterwave_live" value="1" {{ ($settings['flutterwave_live'] ?? false) ? 'checked' : '' }} class="w-3.5 h-3.5 accent-amber-500 rounded">
+                                <span>Live Production Mode (Uncheck for Test Mode)</span>
+                            </label>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-400 mb-1">Public Key</label>
+                                <input type="text" name="flutterwave_public_key" value="{{ $settings['flutterwave_public_key'] ?? '' }}" placeholder="FLWPUBK_TEST-..." class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-400 mb-1">Secret Key</label>
+                                <input type="password" name="flutterwave_secret_key" value="{{ $settings['flutterwave_secret_key'] ?? '' }}" placeholder="FLWSECK_TEST-..." class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-semibold text-slate-400 mb-1">Encryption Key</label>
+                                <input type="password" name="flutterwave_encryption_key" value="{{ $settings['flutterwave_encryption_key'] ?? '' }}" placeholder="FLWSECK_TEST..." class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-amber-400">
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

@@ -950,9 +950,26 @@ class DashboardController extends Controller
             'vault_subscription_currency' => AppSetting::get('vault_subscription_currency', 'KES'),
             'vault_subscription_period_days' => AppSetting::get('vault_subscription_period_days', 30),
             'vault_subscription_package_name' => AppSetting::get('vault_subscription_package_name', 'MovieCat Vault VIP'),
+            // Payment Gateways & Credentials
             'gateway_mpesa_enabled' => (bool)AppSetting::get('gateway_mpesa_enabled', true),
+            'mpesa_shortcode' => AppSetting::get('mpesa_shortcode', env('MPESA_SHORTCODE', '174379')),
+            'mpesa_passkey' => AppSetting::get('mpesa_passkey', env('MPESA_PASSKEY', '')),
+            'mpesa_consumer_key' => AppSetting::get('mpesa_consumer_key', env('MPESA_CONSUMER_KEY', '')),
+            'mpesa_consumer_secret' => AppSetting::get('mpesa_consumer_secret', env('MPESA_CONSUMER_SECRET', '')),
+            'mpesa_live' => (bool)AppSetting::get('mpesa_live', env('MPESA_LIVE', false)),
+            'mpesa_callback_url' => AppSetting::get('mpesa_callback_url', env('MPESA_CALLBACK_URL', 'https://lindrapp.top/api/v1/webhooks/mpesa')),
+
             'gateway_payhero_enabled' => (bool)AppSetting::get('gateway_payhero_enabled', true),
+            'payhero_api_username' => AppSetting::get('payhero_api_username', env('PAYHERO_API_USERNAME', '')),
+            'payhero_api_password' => AppSetting::get('payhero_api_password', env('PAYHERO_API_PASSWORD', '')),
+            'payhero_basic_token' => AppSetting::get('payhero_basic_token', env('PAYHERO_BASIC_AUTH_TOKEN', '')),
+            'payhero_channel_id' => AppSetting::get('payhero_channel_id', env('PAYHERO_CHANNEL_ID', '')),
+
             'gateway_flutterwave_enabled' => (bool)AppSetting::get('gateway_flutterwave_enabled', true),
+            'flutterwave_public_key' => AppSetting::get('flutterwave_public_key', env('FLUTTERWAVE_PUBLIC_KEY', '')),
+            'flutterwave_secret_key' => AppSetting::get('flutterwave_secret_key', env('FLUTTERWAVE_SECRET_KEY', '')),
+            'flutterwave_encryption_key' => AppSetting::get('flutterwave_encryption_key', env('FLUTTERWAVE_ENCRYPTION_KEY', '')),
+            'flutterwave_live' => (bool)AppSetting::get('flutterwave_live', env('FLUTTERWAVE_LIVE', false)),
         ];
 
         return view('admin.settings', compact('settings'));
@@ -974,9 +991,29 @@ class DashboardController extends Controller
         AppSetting::set('feature_cloud_sync', (bool)$request->has('feature_cloud_sync'), 'features');
 
         AppSetting::set('vault_subscription_enabled', (bool)$request->has('vault_subscription_enabled'), 'subscription');
+
+        // M-Pesa Settings
         AppSetting::set('gateway_mpesa_enabled', (bool)$request->has('gateway_mpesa_enabled'), 'gateways');
+        if ($request->has('mpesa_shortcode')) AppSetting::set('mpesa_shortcode', trim($request->input('mpesa_shortcode')), 'mpesa');
+        if ($request->has('mpesa_passkey')) AppSetting::set('mpesa_passkey', trim($request->input('mpesa_passkey')), 'mpesa');
+        if ($request->has('mpesa_consumer_key')) AppSetting::set('mpesa_consumer_key', trim($request->input('mpesa_consumer_key')), 'mpesa');
+        if ($request->has('mpesa_consumer_secret')) AppSetting::set('mpesa_consumer_secret', trim($request->input('mpesa_consumer_secret')), 'mpesa');
+        AppSetting::set('mpesa_live', (bool)$request->has('mpesa_live'), 'mpesa');
+        if ($request->has('mpesa_callback_url')) AppSetting::set('mpesa_callback_url', trim($request->input('mpesa_callback_url')), 'mpesa');
+
+        // PayHero Settings
         AppSetting::set('gateway_payhero_enabled', (bool)$request->has('gateway_payhero_enabled'), 'gateways');
+        if ($request->has('payhero_api_username')) AppSetting::set('payhero_api_username', trim($request->input('payhero_api_username')), 'payhero');
+        if ($request->has('payhero_api_password')) AppSetting::set('payhero_api_password', trim($request->input('payhero_api_password')), 'payhero');
+        if ($request->has('payhero_basic_token')) AppSetting::set('payhero_basic_token', trim($request->input('payhero_basic_token')), 'payhero');
+        if ($request->has('payhero_channel_id')) AppSetting::set('payhero_channel_id', trim($request->input('payhero_channel_id')), 'payhero');
+
+        // Flutterwave Settings
         AppSetting::set('gateway_flutterwave_enabled', (bool)$request->has('gateway_flutterwave_enabled'), 'gateways');
+        if ($request->has('flutterwave_public_key')) AppSetting::set('flutterwave_public_key', trim($request->input('flutterwave_public_key')), 'flutterwave');
+        if ($request->has('flutterwave_secret_key')) AppSetting::set('flutterwave_secret_key', trim($request->input('flutterwave_secret_key')), 'flutterwave');
+        if ($request->has('flutterwave_encryption_key')) AppSetting::set('flutterwave_encryption_key', trim($request->input('flutterwave_encryption_key')), 'flutterwave');
+        AppSetting::set('flutterwave_live', (bool)$request->has('flutterwave_live'), 'flutterwave');
 
         if ($request->filled('vault_subscription_price')) {
             AppSetting::set('vault_subscription_price', (float)$request->input('vault_subscription_price'), 'subscription');

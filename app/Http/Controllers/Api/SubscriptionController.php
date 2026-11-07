@@ -328,10 +328,11 @@ class SubscriptionController extends Controller
     private function triggerMpesaStkPush(Subscription $sub, string $phone, int $amount, string $username): array
     {
         $shortcode = (string)AppSetting::get("mpesa_shortcode", "174379");
-        $passkey = (string)AppSetting::get("mpesa_passkey", "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919");
-        $consumerKey = (string)AppSetting::get("mpesa_consumer_key", "");
-        $consumerSecret = (string)AppSetting::get("mpesa_consumer_secret", "");
+        $passkey = (string)AppSetting::get("mpesa_passkey", env("MPESA_PASSKEY", "bfb279f9aa9bdbcf158e97dd71a467cd2e0c893059b10f78e6b72ada1ed2c919"));
+        $consumerKey = (string)AppSetting::get("mpesa_consumer_key", env("MPESA_CONSUMER_KEY", ""));
+        $consumerSecret = (string)AppSetting::get("mpesa_consumer_secret", env("MPESA_CONSUMER_SECRET", ""));
         $isLive = (bool)AppSetting::get("mpesa_live", false);
+        $callbackUrl = (string)AppSetting::get("mpesa_callback_url", "https://lindrapp.top/api/v1/webhooks/mpesa");
 
         $baseUrl = $isLive ? "https://api.safaricom.co.ke" : "https://sandbox.safaricom.co.ke";
         $timestamp = now("Africa/Nairobi")->format("YmdHis");
@@ -383,10 +384,7 @@ class SubscriptionController extends Controller
     private function triggerPayheroStkPush(Subscription $sub, string $phone, int $amount, string $username): array
     {
         // PayHero Credentials
-        $basicToken = (string)AppSetting::get(
-            "payhero_basic_token",
-            env("PAYHERO_BASIC_AUTH_TOKEN", "Basic VVBnb2JROUxKSHA1YllNZjZYdXA6elRYczY2N0ZiZmhaRWdjWlR2MmZPNlRqRzdQR0dTUXNaTHczYWRZYQ==")
-        );
+        $basicToken = (string)AppSetting::get("payhero_basic_token", env("PAYHERO_BASIC_AUTH_TOKEN", ""));
         $channelId = (string)AppSetting::get("payhero_channel_id", env("PAYHERO_CHANNEL_ID", ""));
         $callbackUrl = url("/api/v1/subscription/webhook/payhero");
 
@@ -425,7 +423,7 @@ class SubscriptionController extends Controller
      */
     private function generateFlutterwaveLink(Subscription $sub, float $amount, string $currency, string $username, string $phone): string
     {
-        $secretKey = (string)AppSetting::get("flutterwave_secret_key", "");
+        $secretKey = (string)AppSetting::get("flutterwave_secret_key", env("FLUTTERWAVE_SECRET_KEY", ""));
         $callbackUrl = url("/api/v1/subscription/webhook/flutterwave");
 
         if (empty($secretKey)) {
