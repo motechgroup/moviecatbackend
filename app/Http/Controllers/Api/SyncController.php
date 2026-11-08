@@ -88,10 +88,18 @@ class SyncController extends Controller
                 'episode' => $validated['episode'] ?? null,
             ];
 
+            $cfCountry = strtoupper(trim((string)$request->header('CF-IPCountry')));
+            $payloadCountry = strtoupper(trim((string)($request->input('country_code') ?: $request->header('X-Country-Code'))));
+            $countryCode = (strlen($cfCountry) === 2 && $cfCountry !== 'XX') ? $cfCountry : (strlen($payloadCountry) === 2 ? $payloadCountry : null);
+            if (!$countryCode) {
+                $countryCode = Device::where('device_id', $deviceId)->value('country_code') ?: 'KE';
+            }
+
             $progress = WatchProgress::updateOrCreate($matchCriteria, [
                 'user_id' => $userId,
                 'title' => $validated['title'],
                 'poster' => $validated['poster'] ?? null,
+                'country_code' => $countryCode,
                 'current_time' => $validated['current_time'],
                 'duration' => $validated['duration'],
                 'completed' => $validated['completed'] ?? false,

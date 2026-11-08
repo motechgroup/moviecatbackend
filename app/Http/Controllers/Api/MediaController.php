@@ -156,4 +156,96 @@ class MediaController extends Controller
             'data' => $similar,
         ]);
     }
+
+    public function trendingByCountry(Request $request): JsonResponse
+    {
+        $countryCode = strtoupper(trim((string)($request->query("country_code") ?: $request->header("CF-IPCountry") ?: "KE")));
+        $limit = min(30, max(5, (int)$request->query("limit", 15)));
+
+        try {
+            $watched = \App\Models\WatchProgress::query()
+                ->leftJoin("devices", "watch_progress.device_id", "=", "devices.device_id")
+                ->where(function ($q) use ($countryCode) {
+                    $q->where("watch_progress.country_code", $countryCode)
+                      ->orWhere("devices.country_code", $countryCode);
+                })
+                ->where("watch_progress.current_time", ">=", 15)
+                ->whereNotNull("watch_progress.title")
+                ->whereNotNull("watch_progress.poster")
+                ->selectRaw("
+                    watch_progress.media_id,
+                    watch_progress.media_type,
+                    watch_progress.title,
+                    watch_progress.poster,
+                    count(distinct watch_progress.device_id) as viewers_count,
+                    max(watch_progress.last_watched_at) as latest_watch
+                ")
+                ->groupBy("watch_progress.media_id", "watch_progress.media_type", "watch_progress.title", "watch_progress.poster")
+                ->orderByDesc("viewers_count")
+                ->orderByDesc("latest_watch")
+                ->take($limit)
+                ->get();
+
+            $results = [];
+            $seenTitles = [];
+
+            foreach ($watched as $w) {
+                $norm = strtolower(trim($w->title));
+                if (isset($seenTitles[$norm])) continue;
+                $seenTitles[$norm] = true;
+
+                $results[] = [
+                    "id" => is_numeric($w->media_id) ? (int)$w->media_id : $w->media_id,
+                    "tmdbId" => is_numeric($w->media_id) ? (int)$w->media_id : null,
+                    "title" => $w->title,
+                    "mediaType" => $w->media_type ?: "movie",
+                    "poster" => $w->poster,
+                    "year" => (string)now()->year,
+                    "voteAverage" => 8.5,
+                    "overview" => "Top watched by viewers in " . $countryCode,
+                    "viewersCount" => (int)$w->viewers_count,
+                ];
+            }
+
+            if (count($results) < 10) {
+                $fallbackMedia = MediaItem::where("status", "published")
+                    ->orderByDesc("vote_average")
+                    ->take(15)
+                    ->get();
+
+                foreach ($fallbackMedia as $fm) {
+                    $norm = strtolower(trim($fm->title));
+                    if (isset($seenTitles[$norm])) continue;
+                    $seenTitles[$norm] = true;
+
+                    $results[] = [
+                        "id" => $fm->id,
+                        "tmdbId" => $fm->tmdb_id ?: $fm->id,
+                        "title" => $fm->title,
+                        "mediaType" => $fm->media_type ?: "movie",
+                        "poster" => $fm->poster_url,
+                        "backdrop" => $fm->backdrop_url,
+                        "year" => (string)($fm->year ?: now()->year),
+                        "voteAverage" => (float)($fm->vote_average ?: 8.0),
+                        "overview" => $fm->overview ?: "",
+                    ];
+
+                    if (count($results) >= 10) break;
+                }
+            }
+
+            return response()->json([
+                "success" => true,
+                "country_code" => $countryCode,
+                "data" => $results,
+                "total" => count($results),
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                "success" => false,
+                "error" => $e->getMessage(),
+                "data" => [],
+            ]);
+        }
+    }
 }

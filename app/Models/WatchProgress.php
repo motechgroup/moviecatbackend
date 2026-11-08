@@ -16,6 +16,7 @@ class WatchProgress extends Model
         'media_type',
         'title',
         'poster',
+        'country_code',
         'season',
         'episode',
         'current_time',

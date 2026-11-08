@@ -39,6 +39,7 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     // Media Catalog & Streams
     Route::get('/featured', [MediaController::class, 'featured']);
     Route::get('/trending', [MediaController::class, 'trending']);
+    Route::get('/trending/country', [MediaController::class, 'trendingByCountry']);
     Route::get('/movies', [MediaController::class, 'movies']);
     Route::get('/series', [MediaController::class, 'series']);
     Route::get('/media/{id}', [MediaController::class, 'show']);
