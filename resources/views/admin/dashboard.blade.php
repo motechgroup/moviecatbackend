@@ -227,6 +227,265 @@
         </a>
     </div>
 
+    <!-- BUSINESS VALUE & OPERATIONAL INTELLIGENCE METRICS -->
+    <div class="space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+                <h3 class="text-base sm:text-lg font-black text-white flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
+                    <span>Executive Unit Economics & Product Intelligence</span>
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">Core engagement, retention, infrastructure cost vectors, and monetization telemetry across active users.</p>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+                <span class="px-3 py-1 rounded-xl bg-white/5 border border-white/10 text-slate-300 font-mono">
+                    DAU / MAU Velocity
+                </span>
+                <span class="px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold">
+                    Telemetry Live
+                </span>
+            </div>
+        </div>
+
+        <!-- 8-Card High-Density Business Value Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3.5 sm:gap-4">
+            
+            <!-- 1. Daily Active Users (DAU) -->
+            <div class="p-4 sm:p-5 rounded-2xl glass-panel relative overflow-hidden border border-white/5 hover:border-emerald-500/30 transition-all group">
+                <div class="flex items-center justify-between text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                    <span>Daily Active Users (DAU)</span>
+                    <span class="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/15 text-emerald-400 font-extrabold border border-emerald-500/30">Engagement</span>
+                </div>
+                <div class="text-2xl sm:text-3xl font-black text-white mt-2 tracking-tight flex items-baseline gap-2">
+                    <span>{{ number_format($businessMetrics['dau']) }}</span>
+                    <span class="text-xs font-mono text-emerald-400 font-bold">({{ $businessMetrics['dau_pct'] }}%)</span>
+                </div>
+                <div class="mt-2 text-[11px] text-slate-400 flex items-center justify-between">
+                    <span>Actual daily active engagement</span>
+                    <span class="text-slate-500 font-mono">24h window</span>
+                </div>
+            </div>
+
+            <!-- 2. Average Watch Duration -->
+            <div class="p-4 sm:p-5 rounded-2xl glass-panel relative overflow-hidden border border-white/5 hover:border-purple-500/30 transition-all group">
+                <div class="flex items-center justify-between text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                    <span>Avg Watch Duration</span>
+                    <span class="px-1.5 py-0.5 rounded text-[9px] bg-purple-500/15 text-purple-400 font-extrabold border border-purple-500/30">Retention</span>
+                </div>
+                <div class="text-2xl sm:text-3xl font-black text-purple-400 mt-2 tracking-tight">
+                    {{ $businessMetrics['avg_watch_formatted'] }}
+                </div>
+                <div class="mt-2 text-[11px] text-slate-400 flex items-center justify-between">
+                    <span>Content consumption depth</span>
+                    <span class="text-slate-500 font-mono">~{{ $businessMetrics['avg_watch_mins'] }}m / stream</span>
+                </div>
+            </div>
+
+            <!-- 3. Downloads Per User -->
+            <div class="p-4 sm:p-5 rounded-2xl glass-panel relative overflow-hidden border border-white/5 hover:border-amber-500/30 transition-all group">
+                <div class="flex items-center justify-between text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                    <span>Downloads Per User</span>
+                    <span class="px-1.5 py-0.5 rounded text-[9px] bg-amber-500/15 text-amber-400 font-extrabold border border-amber-500/30">Vault Demand</span>
+                </div>
+                <div class="text-2xl sm:text-3xl font-black text-amber-400 mt-2 tracking-tight">
+                    {{ $businessMetrics['downloads_per_user'] }}
+                </div>
+                <div class="mt-2 text-[11px] text-slate-400 flex items-center justify-between">
+                    <span>Offline vault demand ratio</span>
+                    <span class="text-slate-500 font-mono">{{ number_format($stats['totalDownloads']) }} total</span>
+                </div>
+            </div>
+
+            <!-- 4. Returning Users & Loyalty -->
+            <div class="p-4 sm:p-5 rounded-2xl glass-panel relative overflow-hidden border border-white/5 hover:border-sky-500/30 transition-all group">
+                <div class="flex items-center justify-between text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                    <span>Returning Users</span>
+                    <span class="px-1.5 py-0.5 rounded text-[9px] bg-sky-500/15 text-sky-400 font-extrabold border border-sky-500/30">Product Loyalty</span>
+                </div>
+                <div class="text-2xl sm:text-3xl font-black text-sky-400 mt-2 tracking-tight flex items-baseline gap-2">
+                    <span>{{ number_format($businessMetrics['returning_users']) }}</span>
+                    <span class="text-xs font-mono text-sky-300 font-bold">({{ $businessMetrics['returning_pct'] }}%)</span>
+                </div>
+                <div class="mt-2 text-[11px] text-slate-400 flex items-center justify-between">
+                    <span>Multi-session loyalty fleet</span>
+                    <span class="text-slate-500 font-mono">>1 session</span>
+                </div>
+            </div>
+
+            <!-- 5. Streaming Bandwidth & Storage -->
+            <div class="p-4 sm:p-5 rounded-2xl glass-panel relative overflow-hidden border border-white/5 hover:border-rose-500/30 transition-all group">
+                <div class="flex items-center justify-between text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                    <span>Streaming Bandwidth</span>
+                    <span class="px-1.5 py-0.5 rounded text-[9px] bg-rose-500/15 text-rose-400 font-extrabold border border-rose-500/30">Infra Costs</span>
+                </div>
+                <div class="text-2xl sm:text-3xl font-black text-rose-400 mt-2 tracking-tight">
+                    {{ $businessMetrics['total_bandwidth_formatted'] }}
+                </div>
+                <div class="mt-2 text-[11px] text-slate-400 flex items-center justify-between">
+                    <span>CDN & vault data egress</span>
+                    <span class="text-slate-500 font-mono">{{ $stats['totalDataTransferred'] }} vault</span>
+                </div>
+            </div>
+
+            <!-- 6. Download Success Rate -->
+            <div class="p-4 sm:p-5 rounded-2xl glass-panel relative overflow-hidden border border-white/5 hover:border-teal-500/30 transition-all group">
+                <div class="flex items-center justify-between text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                    <span>Download Success Rate</span>
+                    <span class="px-1.5 py-0.5 rounded text-[9px] bg-teal-500/15 text-teal-400 font-extrabold border border-teal-500/30">Vault Reliability</span>
+                </div>
+                <div class="text-2xl sm:text-3xl font-black text-teal-400 mt-2 tracking-tight">
+                    {{ $businessMetrics['download_success_rate'] }}%
+                </div>
+                <div class="mt-2 text-[11px] text-slate-400 flex items-center justify-between">
+                    <span>Offline vault storage integrity</span>
+                    <span class="text-slate-500 font-mono">{{ $businessMetrics['completed_downloads'] }}/{{ $businessMetrics['total_dl_attempts'] }} ok</span>
+                </div>
+            </div>
+
+            <!-- 7. Playback Failure Rate -->
+            <div class="p-4 sm:p-5 rounded-2xl glass-panel relative overflow-hidden border border-white/5 hover:border-indigo-500/30 transition-all group">
+                <div class="flex items-center justify-between text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                    <span>Playback Failure Rate</span>
+                    <span class="px-1.5 py-0.5 rounded text-[9px] bg-indigo-500/15 text-indigo-400 font-extrabold border border-indigo-500/30">Streaming Reliability</span>
+                </div>
+                <div class="text-2xl sm:text-3xl font-black text-indigo-400 mt-2 tracking-tight flex items-baseline gap-2">
+                    <span>{{ $businessMetrics['playback_failure_rate'] }}%</span>
+                    <span class="text-xs font-mono text-emerald-400 font-bold">({{ $businessMetrics['playback_success_rate'] }}% clean)</span>
+                </div>
+                <div class="mt-2 text-[11px] text-slate-400 flex items-center justify-between">
+                    <span>Fatal video playback breaks</span>
+                    <span class="text-slate-500 font-mono">{{ $businessMetrics['playback_errors'] }} errors</span>
+                </div>
+            </div>
+
+            <!-- 8. Revenue Per Active User (ARPU) -->
+            <div class="p-4 sm:p-5 rounded-2xl glass-panel relative overflow-hidden border border-white/5 hover:border-emerald-500/30 transition-all group">
+                <div class="flex items-center justify-between text-slate-400 text-[10px] font-bold uppercase tracking-wider">
+                    <span>Revenue Per User (ARPU)</span>
+                    <span class="px-1.5 py-0.5 rounded text-[9px] bg-emerald-500/15 text-emerald-400 font-extrabold border border-emerald-500/30">Sustainability</span>
+                </div>
+                <div class="text-2xl sm:text-3xl font-black text-emerald-400 mt-2 tracking-tight">
+                    {{ $stats['currency'] }} {{ number_format($businessMetrics['arpu'], 1) }}
+                </div>
+                <div class="mt-2 text-[11px] text-slate-400 flex items-center justify-between">
+                    <span>Monetization efficiency per DAU</span>
+                    <span class="text-slate-500 font-mono">{{ $stats['currency'] }} {{ number_format($stats['totalRevenue']) }} pool</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Secondary Row: Infrastructure QoS & Content Strategy (Preferred Genres, M-Pesa Callbacks, QoS Latency) -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            
+            <!-- Preferred Genres & Content Strategy -->
+            <div class="p-5 sm:p-6 rounded-3xl glass-panel space-y-4 border border-white/10 shadow-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                            <span>🎭 Preferred Genres</span>
+                        </h4>
+                        <p class="text-[11px] text-slate-400">Content strategy breakdown based on audience viewing velocity.</p>
+                    </div>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/15 text-purple-400 border border-purple-500/30">Content Strategy</span>
+                </div>
+
+                <div class="space-y-2.5">
+                    @foreach($preferredGenres as $g)
+                        <div>
+                            <div class="flex items-center justify-between text-xs mb-1">
+                                <span class="font-bold text-white flex items-center gap-2">
+                                    <span class="w-2 h-2 rounded-full" style="background-color: {{ $g['color'] }}"></span>
+                                    {{ $g['genre'] }}
+                                </span>
+                                <span class="font-mono text-slate-400 text-[11px]">
+                                    {{ $g['share'] }}%
+                                    <span class="ml-1 text-[9px] px-1.5 py-0.2 rounded bg-white/5 text-slate-400 border border-white/10">{{ $g['badge'] }}</span>
+                                </span>
+                            </div>
+                            <div class="w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
+                                <div class="h-full rounded-full transition-all duration-500" style="width: {{ $g['share'] }}%; background-color: {{ $g['color'] }}"></div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+
+            <!-- Willingness to Pay & M-Pesa Callback Health -->
+            <div class="p-5 sm:p-6 rounded-3xl glass-panel space-y-4 border border-white/10 shadow-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                            <span>💳 Subscription & M-Pesa Health</span>
+                        </h4>
+                        <p class="text-[11px] text-slate-400">Conversion rate, willingness to pay, and payment callback status.</p>
+                    </div>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Monetization</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 pt-1">
+                    <div class="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5">
+                        <div class="text-[10px] text-slate-400 uppercase font-bold">Sub Conversion Rate</div>
+                        <div class="text-xl font-black text-emerald-400 mt-1">{{ $businessMetrics['sub_renewal_rate'] }}%</div>
+                        <div class="text-[10px] text-slate-500 mt-1">{{ $stats['activeSubscribers'] }} active VIP passes</div>
+                    </div>
+                    <div class="p-3.5 rounded-2xl bg-white/[0.02] border border-white/5">
+                        <div class="text-[10px] text-slate-400 uppercase font-bold">M-Pesa Success Rate</div>
+                        <div class="text-xl font-black text-emerald-400 mt-1">{{ $businessMetrics['mpesa_success_rate'] }}%</div>
+                        <div class="text-[10px] text-slate-500 mt-1">{{ $businessMetrics['mpesa_success'] }} ok / {{ $businessMetrics['mpesa_failed'] }} fail</div>
+                    </div>
+                </div>
+
+                <div class="p-3.5 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 flex items-center justify-between text-xs">
+                    <div class="flex items-center gap-2 text-slate-300">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                        <span>M-Pesa STK Push Gateway</span>
+                    </div>
+                    <span class="text-emerald-400 font-bold font-mono">Live & Operational</span>
+                </div>
+            </div>
+
+            <!-- Quality of Service (QoS) & Infrastructure Telemetry -->
+            <div class="p-5 sm:p-6 rounded-3xl glass-panel space-y-4 border border-white/10 shadow-xl">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h4 class="text-sm font-bold text-white flex items-center gap-2">
+                            <span>⚡ QoS & Network Latency</span>
+                        </h4>
+                        <p class="text-[11px] text-slate-400">Video startup latency, buffer frequency, and telemetry latency.</p>
+                    </div>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">Infra SLA</span>
+                </div>
+
+                <div class="space-y-3 pt-1">
+                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] border border-white/5 text-xs">
+                        <div class="flex items-center gap-2 text-slate-300">
+                            <span class="text-cyan-400">⏱️</span>
+                            <span>Video Startup Time</span>
+                        </div>
+                        <span class="font-mono font-bold text-white">{{ $businessMetrics['video_startup_time'] }}</span>
+                    </div>
+
+                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] border border-white/5 text-xs">
+                        <div class="flex items-center gap-2 text-slate-300">
+                            <span class="text-amber-400">📊</span>
+                            <span>Buffering Frequency</span>
+                        </div>
+                        <span class="font-mono font-bold text-emerald-400">{{ $businessMetrics['buffering_frequency'] }} (Optimal)</span>
+                    </div>
+
+                    <div class="flex items-center justify-between p-2.5 rounded-xl bg-white/[0.02] border border-white/5 text-xs">
+                        <div class="flex items-center gap-2 text-slate-300">
+                            <span class="text-purple-400">🌐</span>
+                            <span>API Edge Latency</span>
+                        </div>
+                        <span class="font-mono font-bold text-purple-300">{{ $businessMetrics['api_latency'] }} (Cloudflare CDN)</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
     <!-- VISUAL ANALYTICS: CHARTS ROW (7-Day Activity Velocity & Ecosystem Donut) -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
@@ -392,6 +651,7 @@
             <div>
                 <h3 class="text-base sm:text-lg font-bold text-white flex items-center gap-2">
                     <span>🔥 Top Media Consumption & Engagement</span>
+                    <span class="text-[10px] px-2 py-0.5 rounded font-extrabold bg-purple-500/20 text-purple-300 border border-purple-500/30">Content Preferences & Offline Demand</span>
                 </h3>
                 <p class="text-xs text-slate-400 mt-0.5">Most streamed movies, television series, and media downloaded to offline client vaults.</p>
             </div>

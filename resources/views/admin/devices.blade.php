@@ -75,6 +75,7 @@
             <table class="w-full text-left text-xs">
                 <thead>
                     <tr class="border-b border-white/10 text-slate-400 uppercase tracking-wider text-[11px]">
+                        <th class="pb-3.5 font-semibold text-center w-12 text-slate-500">#</th>
                         <th class="pb-3.5 font-semibold">Automatic Username / Device</th>
                         <th class="pb-3.5 font-semibold">Country & Location</th>
                         <th class="pb-3.5 font-semibold">Platform & OS</th>
@@ -87,6 +88,9 @@
                 <tbody class="divide-y divide-white/5">
                     @forelse($devices as $device)
                         <tr class="hover:bg-white/[0.02] transition-colors">
+                            <td class="py-4 text-center font-mono text-slate-400 font-bold text-xs">
+                                {{ ($devices->currentPage() - 1) * $devices->perPage() + $loop->iteration }}
+                            </td>
                             <td class="py-4">
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-slate-800 to-slate-700 flex items-center justify-center text-white font-extrabold text-xs shadow border border-white/5 flex-shrink-0">
@@ -151,7 +155,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="py-12 text-center text-slate-400">
+                            <td colspan="8" class="py-12 text-center text-slate-400">
                                 No mobile devices match this query.
                             </td>
                         </tr>
