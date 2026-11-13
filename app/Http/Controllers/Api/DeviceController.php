@@ -124,6 +124,7 @@ class DeviceController extends Controller
         }
 
         $adsEnabled = (bool)AppSetting::get('ads_enabled', true);
+        $movieCatAdsEnabled = (bool)AppSetting::get('moviecat_ads_enabled', true);
         $downloadsEnabled = (bool)AppSetting::get('feature_downloads_enabled', true);
 
         $vaultSubEnabled = (bool)AppSetting::get('vault_subscription_enabled', false);
@@ -140,6 +141,16 @@ class DeviceController extends Controller
             ],
             'ads' => [
                 'enabled' => $adsEnabled,
+                'admobBannersEnabled' => $adsEnabled,
+                'systemBannersEnabled' => $movieCatAdsEnabled,
+            ],
+            'moviecatAds' => [
+                'enabled' => $movieCatAdsEnabled,
+                'items' => AppSetting::get('moviecat_ads_items', []),
+            ],
+            'systemBanners' => [
+                'enabled' => $movieCatAdsEnabled,
+                'items' => AppSetting::get('moviecat_ads_items', []),
             ],
             'features' => [
                 'downloads' => $downloadsEnabled,

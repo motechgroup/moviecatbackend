@@ -38,6 +38,9 @@ Route::prefix('admin')->group(function () {
         // AdMob Monetization
         Route::get('/admob', [DashboardController::class, 'admob'])->name('admin.admob.index');
         Route::post('/admob/toggle', [DashboardController::class, 'toggleAdMob'])->name('admin.admob.toggle');
+        Route::post('/admob/toggle-moviecat-ads', [DashboardController::class, 'toggleMovieCatAds'])->name('admin.admob.toggle-moviecat-ads');
+        Route::post('/admob/moviecat-ads/create', [DashboardController::class, 'createMovieCatAd'])->name('admin.admob.moviecat-ads.create');
+        Route::delete('/admob/moviecat-ads/{id}', [DashboardController::class, 'deleteMovieCatAd'])->name('admin.admob.moviecat-ads.delete');
         Route::post('/admob/settings', [DashboardController::class, 'updateAdmobSettings'])->name('admin.admob.settings');
 
         // Watch Progress & Sync Telemetry

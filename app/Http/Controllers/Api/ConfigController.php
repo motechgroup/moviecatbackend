@@ -116,12 +116,22 @@ class ConfigController extends Controller
                 "maintenance" => AppSetting::get("maintenance_mode", false),
             ],
             "ads" => [
-                "enabled" => AppSetting::get("ads_enabled", true),
+                "enabled" => (bool)AppSetting::get("ads_enabled", true),
+                "admobBannersEnabled" => (bool)AppSetting::get("ads_enabled", true),
+                "systemBannersEnabled" => (bool)AppSetting::get("moviecat_ads_enabled", true),
                 "bannerId" => $bannerId,
                 "interstitialId" => $interstitialId,
                 "rewardedId" => $rewardedId,
                 "interstitialFrequency" => AppSetting::get("interstitial_frequency", 4),
                 "bannerInterval" => AppSetting::get("banner_interval", 30),
+            ],
+            "moviecatAds" => [
+                "enabled" => (bool)AppSetting::get("moviecat_ads_enabled", true),
+                "items" => AppSetting::get("moviecat_ads_items", []),
+            ],
+            "systemBanners" => [
+                "enabled" => (bool)AppSetting::get("moviecat_ads_enabled", true),
+                "items" => AppSetting::get("moviecat_ads_items", []),
             ],
             "announcement" => AppSetting::get("announcement_banner", [
                 "active" => false,

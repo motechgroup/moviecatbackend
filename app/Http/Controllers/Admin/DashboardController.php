@@ -668,9 +668,15 @@ class DashboardController extends Controller
     public function admob(): View
     {
         $adsEnabled = (bool)AppSetting::get('ads_enabled', true);
+        $movieCatAdsEnabled = (bool)AppSetting::get('moviecat_ads_enabled', true);
+        $customAds = AppSetting::get('moviecat_ads_items', []);
+        if (!is_array($customAds)) {
+            $customAds = [];
+        }
 
         $settings = [
             'ads_enabled' => $adsEnabled,
+            'moviecat_ads_enabled' => $movieCatAdsEnabled,
             'admob_android_banner_id' => AppSetting::get('admob_android_banner_id', 'ca-app-pub-6725687905795161/2199152801'),
             'admob_android_interstitial_id' => AppSetting::get('admob_android_interstitial_id', 'ca-app-pub-6725687905795161/7159388334'),
             'admob_android_rewarded_id' => AppSetting::get('admob_android_rewarded_id', 'ca-app-pub-3940256099942544/5224354917'),
@@ -691,7 +697,71 @@ class DashboardController extends Controller
             $adStats = ['impressions' => 0, 'clicks' => 0, 'failed' => 0];
         }
 
-        return view('admin.admob', compact('adsEnabled', 'settings', 'adStats'));
+        return view('admin.admob', compact('adsEnabled', 'movieCatAdsEnabled', 'customAds', 'settings', 'adStats'));
+    }
+
+    public function toggleMovieCatAds(Request $request): RedirectResponse
+    {
+        $current = (bool)AppSetting::get('moviecat_ads_enabled', true);
+        $newVal = !$current;
+        AppSetting::set('moviecat_ads_enabled', $newVal, 'ads');
+        AppSetting::set('system_banners_enabled', $newVal, 'ads');
+
+        $statusMsg = $newVal
+            ? 'MovieCat Ads ENABLED. Custom in-house ads will show on mobile devices.'
+            : 'MovieCat Ads DISABLED. All in-house ads are silenced across the mobile app in real-time.';
+
+        return back()->with('success', $statusMsg);
+    }
+
+    public function createMovieCatAd(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'brandName' => 'required|string|max:64',
+            'badge' => 'nullable|string|max:32',
+            'title' => 'required|string|max:128',
+            'tagline' => 'required|string|max:255',
+            'ctaText' => 'required|string|max:32',
+            'url' => 'required|url|max:255',
+            'imageUrl' => 'nullable|url|max:255',
+            'accentColor' => 'nullable|string|max:16',
+        ]);
+
+        $items = AppSetting::get('moviecat_ads_items', []);
+        if (!is_array($items)) {
+            $items = [];
+        }
+
+        $newItem = [
+            'id' => 'ad_' . time() . '_' . rand(100, 999),
+            'brandName' => trim($validated['brandName']),
+            'badge' => !empty($validated['badge']) ? strtoupper(trim($validated['badge'])) : 'SPONSORED',
+            'title' => trim($validated['title']),
+            'tagline' => trim($validated['tagline']),
+            'ctaText' => trim($validated['ctaText']),
+            'url' => trim($validated['url']),
+            'imageUrl' => !empty($validated['imageUrl']) ? trim($validated['imageUrl']) : null,
+            'accentColor' => !empty($validated['accentColor']) ? trim($validated['accentColor']) : '#FFB300',
+            'icon' => 'sparkles',
+            'rating' => 'OFFICIAL',
+            'created_at' => now()->toIso8601String(),
+        ];
+
+        array_unshift($items, $newItem);
+        AppSetting::set('moviecat_ads_items', $items, 'ads');
+
+        return back()->with('success', 'New MovieCat ad created and pushed to the app!');
+    }
+
+    public function deleteMovieCatAd(string $id): RedirectResponse
+    {
+        $items = AppSetting::get('moviecat_ads_items', []);
+        if (is_array($items)) {
+            $items = array_values(array_filter($items, fn($item) => ($item['id'] ?? '') !== $id));
+            AppSetting::set('moviecat_ads_items', $items, 'ads');
+        }
+
+        return back()->with('success', 'MovieCat ad removed from the app.');
     }
 
     public function toggleAdMob(Request $request): RedirectResponse
