@@ -479,21 +479,82 @@ class DashboardController extends Controller
         ));
     }
 
-    // 2. Active Devices Fleet Page
+    // 2. Active Devices Fleet & Retention Intelligence Page
     public function devices(Request $request): View
     {
         $this->syncMissingDevices();
         $activeThreshold = now()->subMinutes(15);
         $recentActiveThreshold = now()->subHours(24);
+        $weekActiveThreshold = now()->subDays(7);
+        $monthActiveThreshold = now()->subDays(30);
 
         try {
+            $totalFleet = Device::count();
+            $activeNow = Device::where('last_active_at', '>=', $activeThreshold)->count();
+            $dau = Device::where('last_active_at', '>=', $recentActiveThreshold)->count();
+            $wau = Device::where('last_active_at', '>=', $weekActiveThreshold)->count();
+            $mau = Device::where('last_active_at', '>=', $monthActiveThreshold)->count();
+
+            // Retention & Returning Metrics
+            $returningCount = Device::where('sessions_count', '>', 1)->count();
+            $newCount = Device::where('sessions_count', '<=', 1)->count();
+            $powerCount = Device::where(function ($q) {
+                $q->where('sessions_count', '>=', 5)
+                  ->orWhere('total_watch_seconds', '>=', 7200);
+            })->count();
+            $dormantCount = Device::where('last_active_at', '<', now()->subDays(14))->count();
+
+            $returningRate = $totalFleet > 0 ? round(($returningCount / $totalFleet) * 100, 1) : 0;
+            $newRate = $totalFleet > 0 ? round(($newCount / $totalFleet) * 100, 1) : 0;
+            $powerRate = $totalFleet > 0 ? round(($powerCount / $totalFleet) * 100, 1) : 0;
+            $dormantRate = $totalFleet > 0 ? round(($dormantCount / $totalFleet) * 100, 1) : 0;
+
+            // DAU / MAU Stickiness Ratio
+            $stickiness = $mau > 0 ? round(($dau / $mau) * 100, 1) : 0;
+
+            // Engagement Averages
+            $avgSessions = $totalFleet > 0 ? round((float)(Device::avg('sessions_count') ?? 0), 1) : 0;
+            $avgWatchSec = $totalFleet > 0 ? (int)(Device::avg('total_watch_seconds') ?? 0) : 0;
+            $avgWatchFormatted = $this->formatSeconds($avgWatchSec);
+
+            // Platform Retention
+            $androidTotal = Device::where('platform', 'android')->count();
+            $androidReturning = Device::where('platform', 'android')->where('sessions_count', '>', 1)->count();
+            $androidRetentionRate = $androidTotal > 0 ? round(($androidReturning / $androidTotal) * 100, 1) : 0;
+
+            $iosTotal = Device::where('platform', 'ios')->count();
+            $iosReturning = Device::where('platform', 'ios')->where('sessions_count', '>', 1)->count();
+            $iosRetentionRate = $iosTotal > 0 ? round(($iosReturning / $iosTotal) * 100, 1) : 0;
+
+            $countriesCount = Schema::hasColumn('devices', 'country_code') ? Device::distinct()->count('country_code') : 0;
+
             $stats = [
-                'total' => Device::count(),
-                'activeNow' => Device::where('last_active_at', '>=', $activeThreshold)->count(),
-                'activeToday' => Device::where('last_active_at', '>=', $recentActiveThreshold)->count(),
-                'android' => Device::where('platform', 'android')->count(),
-                'ios' => Device::where('platform', 'ios')->count(),
-                'countriesCount' => (Schema::hasColumn('devices', 'country_code') ? Device::distinct()->count('country_code') : 0),
+                'total' => $totalFleet,
+                'activeNow' => $activeNow,
+                'dau' => $dau,
+                'wau' => $wau,
+                'mau' => $mau,
+                'returningCount' => $returningCount,
+                'newCount' => $newCount,
+                'powerCount' => $powerCount,
+                'dormantCount' => $dormantCount,
+                'returningRate' => $returningRate,
+                'newRate' => $newRate,
+                'powerRate' => $powerRate,
+                'dormantRate' => $dormantRate,
+                'stickiness' => $stickiness,
+                'avgSessions' => $avgSessions,
+                'avgWatchFormatted' => $avgWatchFormatted,
+                'android' => $androidTotal,
+                'ios' => $iosTotal,
+                'androidRetentionRate' => $androidRetentionRate,
+                'iosRetentionRate' => $iosRetentionRate,
+                'countriesCount' => $countriesCount,
+                'funnel' => [
+                    'new_pct' => $totalFleet > 0 ? round(($newCount / $totalFleet) * 100, 1) : 0,
+                    'returning_pct' => $totalFleet > 0 ? round((max(0, $returningCount - $powerCount) / $totalFleet) * 100, 1) : 0,
+                    'power_pct' => $totalFleet > 0 ? round(($powerCount / $totalFleet) * 100, 1) : 0,
+                ],
             ];
 
             $query = Device::withCount(['watchProgress', 'bookmarks']);
@@ -505,6 +566,7 @@ class DashboardController extends Controller
                       ->orWhere('device_name', 'like', "%{$search}%")
                       ->orWhere('country', 'like', "%{$search}%")
                       ->orWhere('country_code', 'like', "%{$search}%")
+                      ->orWhere('city', 'like', "%{$search}%")
                       ->orWhere('ip_address', 'like', "%{$search}%");
                 });
             }
@@ -520,11 +582,44 @@ class DashboardController extends Controller
                 });
             }
 
-            if ($request->query('status') === 'online') {
-                $query->where('last_active_at', '>=', $activeThreshold);
+            // Retention / Loyalty Filter
+            if ($retention = $request->query('retention')) {
+                if ($retention === 'returning') {
+                    $query->where('sessions_count', '>', 1);
+                } elseif ($retention === 'power') {
+                    $query->where(function ($q) {
+                        $q->where('sessions_count', '>=', 5)
+                          ->orWhere('total_watch_seconds', '>=', 7200);
+                    });
+                } elseif ($retention === 'new') {
+                    $query->where('sessions_count', '<=', 1);
+                } elseif ($retention === 'dormant') {
+                    $query->where('last_active_at', '<', now()->subDays(14));
+                }
             }
 
-            $devices = $query->orderByDesc('last_active_at')->paginate(15)->withQueryString();
+            if ($status = $request->query('status')) {
+                if ($status === 'online') {
+                    $query->where('last_active_at', '>=', $activeThreshold);
+                } elseif ($status === 'today') {
+                    $query->where('last_active_at', '>=', $recentActiveThreshold);
+                } elseif ($status === 'week') {
+                    $query->where('last_active_at', '>=', $weekActiveThreshold);
+                }
+            }
+
+            $sort = $request->query('sort', 'recent');
+            if ($sort === 'sessions') {
+                $query->orderByDesc('sessions_count');
+            } elseif ($sort === 'watch_time') {
+                $query->orderByDesc('total_watch_seconds');
+            } elseif ($sort === 'oldest') {
+                $query->orderBy('created_at');
+            } else {
+                $query->orderByDesc('last_active_at');
+            }
+
+            $devices = $query->paginate(20)->withQueryString();
 
             $availableCountries = Device::select('country', 'country_code', DB::raw('count(*) as count'))
                 ->whereNotNull('country_code')
@@ -533,10 +628,15 @@ class DashboardController extends Controller
                 ->get();
         } catch (Throwable) {
             $stats = [
-                'total' => 0, 'activeNow' => 0, 'activeToday' => 0,
-                'android' => 0, 'ios' => 0, 'countriesCount' => 0,
+                'total' => 0, 'activeNow' => 0, 'dau' => 0, 'wau' => 0, 'mau' => 0,
+                'returningCount' => 0, 'newCount' => 0, 'powerCount' => 0, 'dormantCount' => 0,
+                'returningRate' => 0, 'newRate' => 0, 'powerRate' => 0, 'dormantRate' => 0,
+                'stickiness' => 0, 'avgSessions' => 0, 'avgWatchFormatted' => '0 min',
+                'android' => 0, 'ios' => 0, 'androidRetentionRate' => 0, 'iosRetentionRate' => 0,
+                'countriesCount' => 0,
+                'funnel' => ['new_pct' => 0, 'returning_pct' => 0, 'power_pct' => 0],
             ];
-            $devices = new LengthAwarePaginator([], 0, 15);
+            $devices = new LengthAwarePaginator([], 0, 20);
             $availableCountries = collect();
         }
 
