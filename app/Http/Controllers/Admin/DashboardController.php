@@ -847,39 +847,63 @@ class DashboardController extends Controller
         return back()->with('success', 'AdMob unit configurations saved successfully!');
     }
 
-    // 6. Watch History Telemetry Page
+    // 5. Watch Progress & Completion Analytics Page
     public function watchHistory(Request $request): View
     {
+        $this->syncMissingDevices();
         try {
             $query = WatchProgress::with('device');
 
             if ($search = $request->query('search')) {
                 $query->where(function ($q) use ($search) {
                     $q->where('title', 'like', "%{$search}%")
+                      ->orWhere('media_id', 'like', "%{$search}%")
                       ->orWhere('device_id', 'like', "%{$search}%")
                       ->orWhereHas('device', function ($dq) use ($search) {
-                          $dq->where('username', 'like', "%{$search}%");
+                          $dq->where('username', 'like', "%{$search}%")
+                            ->orWhere('device_name', 'like', "%{$search}%");
                       });
                 });
-            }
-
-            if ($type = $request->query('type')) {
-                $query->where('media_type', $type);
             }
 
             if ($source = $request->query('source')) {
                 if ($source === 'offline') {
                     $query->where('is_offline', true);
-                } elseif ($source === 'online') {
-                    $query->where('is_offline', false);
+                } elseif ($source === 'stream' || $source === 'online') {
+                    $query->where(function ($q) {
+                        $q->where('is_offline', false)->orWhereNull('is_offline');
+                    });
+                }
+            }
+
+            if ($mediaType = $request->query('media_type') ?: $request->query('type')) {
+                if (in_array($mediaType, ['movie', 'tv'])) {
+                    $query->where('media_type', $mediaType);
                 }
             }
 
             if ($status = $request->query('status')) {
                 if ($status === 'completed') {
-                    $query->where('completed', true);
+                    $query->where(function ($q) {
+                        $q->where('completed', true)
+                          ->orWhereRaw('(duration > 0 AND (current_time / duration) >= 0.85)');
+                    });
+                } elseif ($status === 'hooked') {
+                    $query->where('completed', false)
+                          ->whereRaw('(duration > 0 AND (current_time / duration) >= 0.50 AND (current_time / duration) < 0.85)');
+                } elseif ($status === 'engaged') {
+                    $query->where('completed', false)
+                          ->whereRaw('(duration > 0 AND (current_time / duration) >= 0.25 AND (current_time / duration) < 0.50)');
+                } elseif ($status === 'started') {
+                    $query->where('completed', false)
+                          ->where(function ($q) {
+                              $q->whereRaw('(duration > 0 AND (current_time / duration) < 0.25)')
+                                ->orWhereNull('duration')
+                                ->orWhere('duration', 0);
+                          });
                 } elseif ($status === 'in_progress') {
-                    $query->where('completed', false);
+                    $query->where('completed', false)
+                          ->whereRaw('(duration > 0 AND (current_time / duration) < 0.85)');
                 }
             }
 
@@ -895,6 +919,8 @@ class DashboardController extends Controller
 
             $sort = $request->query('sort', 'recent');
             if ($sort === 'progress') {
+                $query->orderByDesc(DB::raw('case when duration > 0 then (current_time / duration) else 0 end'));
+            } elseif ($sort === 'duration') {
                 $query->orderByDesc('current_time');
             } elseif ($sort === 'oldest') {
                 $query->orderBy('last_watched_at');
@@ -904,11 +930,18 @@ class DashboardController extends Controller
 
             $history = $query->paginate(25)->withQueryString();
 
-            // High-Level KPIs
+            // Progress & Completion Analytics
             $totalCheckpoints = WatchProgress::count();
-            $completedWatches = WatchProgress::where('completed', true)->count();
+            $completedWatches = WatchProgress::where(function ($q) {
+                $q->where('completed', true)
+                  ->orWhereRaw('(duration > 0 AND (current_time / duration) >= 0.85)');
+            })->count();
+
             $offlineWatches = WatchProgress::where('is_offline', true)->count();
-            $onlineWatches = WatchProgress::where('is_offline', false)->count();
+            $onlineWatches = WatchProgress::where(function ($q) {
+                $q->where('is_offline', false)->orWhereNull('is_offline');
+            })->count();
+
             $totalSeconds = (int)WatchProgress::sum('current_time');
             $uniqueDevices = WatchProgress::distinct('device_id')->count('device_id');
             $moviesCount = WatchProgress::where('media_type', 'movie')->count();
@@ -917,51 +950,250 @@ class DashboardController extends Controller
             $moviePct = $totalType > 0 ? round(($moviesCount / $totalType) * 100, 1) : 50;
             $tvPct = $totalType > 0 ? round(($tvCount / $totalType) * 100, 1) : 50;
 
+            // Completion Funnel Buckets
+            $startedCount = WatchProgress::where('completed', false)
+                ->where(function ($sq) {
+                    $sq->whereRaw('(duration > 0 AND (current_time / duration) < 0.25)')
+                       ->orWhereNull('duration')
+                       ->orWhere('duration', 0);
+                })->count();
+
+            $engagedCount = WatchProgress::where('completed', false)
+                ->whereRaw('(duration > 0 AND (current_time / duration) >= 0.25 AND (current_time / duration) < 0.50)')
+                ->count();
+
+            $hookedCount = WatchProgress::where('completed', false)
+                ->whereRaw('(duration > 0 AND (current_time / duration) >= 0.50 AND (current_time / duration) < 0.85)')
+                ->count();
+
+            // Format Completion comparison
+            $movieCompleted = WatchProgress::where('media_type', 'movie')->where(function ($q) {
+                $q->where('completed', true)->orWhereRaw('(duration > 0 AND (current_time / duration) >= 0.85)');
+            })->count();
+            $movieCompletionRate = $moviesCount > 0 ? round(($movieCompleted / $moviesCount) * 100, 1) : 0;
+
+            $tvCompleted = WatchProgress::where('media_type', 'tv')->where(function ($q) {
+                $q->where('completed', true)->orWhereRaw('(duration > 0 AND (current_time / duration) >= 0.85)');
+            })->count();
+            $tvCompletionRate = $tvCount > 0 ? round(($tvCompleted / $tvCount) * 100, 1) : 0;
+
+            // Offline vs Online completion
+            $offlineCompleted = WatchProgress::where('is_offline', true)->where(function ($q) {
+                $q->where('completed', true)->orWhereRaw('(duration > 0 AND (current_time / duration) >= 0.85)');
+            })->count();
+            $offlineCompletionRate = $offlineWatches > 0 ? round(($offlineCompleted / $offlineWatches) * 100, 1) : 0;
+
+            $onlineCompleted = WatchProgress::where(function ($q) {
+                $q->where('is_offline', false)->orWhereNull('is_offline');
+            })->where(function ($q) {
+                $q->where('completed', true)->orWhereRaw('(duration > 0 AND (current_time / duration) >= 0.85)');
+            })->count();
+            $onlineCompletionRate = $onlineWatches > 0 ? round(($onlineCompleted / $onlineWatches) * 100, 1) : 0;
+
+            // Average Progress % across all streams
+            $avgProgressPct = (float)(WatchProgress::whereNotNull('duration')->where('duration', '>', 0)
+                ->selectRaw('ROUND(AVG(LEAST(100, (current_time / duration) * 100)), 1) as avg_pct')
+                ->value('avg_pct') ?? 0);
+
+            $avgSessionSeconds = $totalCheckpoints > 0 ? round($totalSeconds / $totalCheckpoints) : 0;
+
             $stats = [
                 'totalCheckpoints' => $totalCheckpoints,
                 'completed' => $completedWatches,
+                'inProgress' => max(0, $totalCheckpoints - $completedWatches),
                 'offlineWatches' => $offlineWatches,
                 'onlineWatches' => $onlineWatches,
                 'totalWatchTime' => $this->formatSeconds($totalSeconds),
+                'avgSessionTime' => $this->formatSeconds($avgSessionSeconds),
+                'avgProgressPct' => $avgProgressPct,
                 'uniqueDevices' => $uniqueDevices,
                 'movies' => $moviesCount,
                 'series' => $tvCount,
                 'moviePct' => $moviePct,
                 'tvPct' => $tvPct,
                 'completionRate' => $totalCheckpoints > 0 ? round(($completedWatches / $totalCheckpoints) * 100, 1) : 0,
+                'movieCompletionRate' => $movieCompletionRate,
+                'tvCompletionRate' => $tvCompletionRate,
+                'offlineCompletionRate' => $offlineCompletionRate,
+                'onlineCompletionRate' => $onlineCompletionRate,
+                'startedCount' => $startedCount,
+                'engagedCount' => $engagedCount,
+                'hookedCount' => $hookedCount,
+                'funnel' => [
+                    'started_pct' => $totalCheckpoints > 0 ? round(($startedCount / $totalCheckpoints) * 100, 1) : 0,
+                    'engaged_pct' => $totalCheckpoints > 0 ? round(($engagedCount / $totalCheckpoints) * 100, 1) : 0,
+                    'hooked_pct' => $totalCheckpoints > 0 ? round(($hookedCount / $totalCheckpoints) * 100, 1) : 0,
+                    'completed_pct' => $totalCheckpoints > 0 ? round(($completedWatches / $totalCheckpoints) * 100, 1) : 0,
+                ],
             ];
 
-            // Top Viewed Titles Showcase (Top 6)
-            $topViewed = WatchProgress::select([
+            // Top Completed Content Leaderboard
+            $topCompleted = WatchProgress::select([
                     'title',
                     DB::raw('MAX(poster) as poster'),
                     DB::raw('MAX(media_type) as media_type'),
                     DB::raw('MAX(media_id) as media_id'),
                     DB::raw('count(*) as view_count'),
-                    DB::raw("sum(case when is_offline = 1 then 1 else 0 end) as offline_count"),
+                    DB::raw("sum(case when completed = 1 or (duration > 0 and (current_time / duration) >= 0.85) then 1 else 0 end) as completed_count"),
                     DB::raw('sum(current_time) as total_watch_seconds'),
-                    DB::raw('count(distinct device_id) as unique_devices'),
+                    DB::raw('round(avg(case when duration > 0 then least(100, (current_time / duration) * 100) else 0 end), 1) as avg_prog'),
                 ])
                 ->groupBy('title')
-                ->orderByDesc('view_count')
+                ->orderByDesc('completed_count')
                 ->take(6)
                 ->get()
                 ->map(function ($item) {
                     $item->formatted_watch_time = $this->formatSeconds((int)$item->total_watch_seconds);
+                    $item->completion_rate = $item->view_count > 0 ? round(($item->completed_count / $item->view_count) * 100, 1) : 0;
                     return $item;
                 });
 
         } catch (Throwable) {
             $history = new LengthAwarePaginator([], 0, 25);
             $stats = [
-                'totalCheckpoints' => 0, 'completed' => 0, 'offlineWatches' => 0, 'onlineWatches' => 0,
-                'totalWatchTime' => '0 min', 'uniqueDevices' => 0, 'movies' => 0, 'series' => 0,
+                'totalCheckpoints' => 0, 'completed' => 0, 'inProgress' => 0,
+                'offlineWatches' => 0, 'onlineWatches' => 0,
+                'totalWatchTime' => '0 min', 'avgSessionTime' => '0 min', 'avgProgressPct' => 0,
+                'uniqueDevices' => 0, 'movies' => 0, 'series' => 0,
                 'moviePct' => 50, 'tvPct' => 50, 'completionRate' => 0,
+                'movieCompletionRate' => 0, 'tvCompletionRate' => 0,
+                'offlineCompletionRate' => 0, 'onlineCompletionRate' => 0,
+                'startedCount' => 0, 'engagedCount' => 0, 'hookedCount' => 0,
+                'funnel' => ['started_pct' => 0, 'engaged_pct' => 0, 'hooked_pct' => 0, 'completed_pct' => 0],
             ];
-            $topViewed = collect();
+            $topCompleted = collect();
         }
 
-        return view('admin.watch-history', compact('history', 'stats', 'topViewed'));
+        return view('admin.watch-history', compact('history', 'stats', 'topCompleted'));
+    }
+
+    // 6. Users Region & Traffic Module
+    public function traffic(Request $request): View
+    {
+        $this->syncMissingDevices();
+        try {
+            $totalDevices = Device::count();
+            $totalCountries = Device::whereNotNull('country_code')->where('country_code', '!=', '')->distinct('country_code')->count();
+            $totalCities = Device::whereNotNull('city')->where('city', '!=', '')->distinct('city')->count();
+            $totalWatchSeconds = (int)Device::sum('total_watch_seconds');
+            $totalSessions = (int)Device::sum('sessions_count');
+
+            // Estimated CDN Data Egress
+            $totalDownloadBytes = Schema::hasTable('download_events')
+                ? (int)DownloadEvent::whereIn('status', ['completed', 'offline_watched'])->sum('file_size_bytes')
+                : 0;
+            $estStreamingBytes = $totalWatchSeconds * 190000;
+            $totalBandwidth = $this->formatBytes($totalDownloadBytes + $estStreamingBytes);
+
+            // Domestic vs International (Primary Market: Kenya 'KE')
+            $domesticDevices = Device::where('country_code', 'KE')->count();
+            $internationalDevices = max(0, $totalDevices - $domesticDevices);
+            $domesticPct = $totalDevices > 0 ? round(($domesticDevices / $totalDevices) * 100, 1) : 0;
+            $internationalPct = $totalDevices > 0 ? round(($internationalDevices / $totalDevices) * 100, 1) : 0;
+
+            // Country Performance Leaderboard
+            $countries = Device::select(
+                    'country',
+                    'country_code',
+                    DB::raw('count(*) as device_count'),
+                    DB::raw('sum(sessions_count) as total_sessions'),
+                    DB::raw('sum(total_watch_seconds) as total_watch_seconds'),
+                    DB::raw("sum(case when last_active_at >= '" . now()->subHours(24)->toDateTimeString() . "' then 1 else 0 end) as active_today"),
+                    DB::raw("sum(case when platform = 'android' then 1 else 0 end) as android_count"),
+                    DB::raw("sum(case when platform = 'ios' then 1 else 0 end) as ios_count")
+                )
+                ->whereNotNull('country_code')
+                ->where('country_code', '!=', '')
+                ->groupBy('country', 'country_code')
+                ->orderByDesc('device_count')
+                ->get()
+                ->map(function ($c) use ($totalDevices) {
+                    $c->share_pct = $totalDevices > 0 ? round(($c->device_count / $totalDevices) * 100, 1) : 0;
+                    $c->formatted_watch_time = $this->formatSeconds((int)$c->total_watch_seconds);
+                    $flag = '🌐';
+                    if ($c->country_code && strlen($c->country_code) === 2) {
+                        $c1 = ord(strtoupper($c->country_code[0])) - 65 + 0x1F1E6;
+                        $c2 = ord(strtoupper($c->country_code[1])) - 65 + 0x1F1E6;
+                        $flag = mb_chr($c1, 'UTF-8') . mb_chr($c2, 'UTF-8');
+                    }
+                    $c->flag = $flag;
+                    return $c;
+                });
+
+            // Top Cities
+            $topCities = Device::select(
+                    'city',
+                    'country',
+                    'country_code',
+                    DB::raw('count(*) as device_count'),
+                    DB::raw('sum(total_watch_seconds) as total_watch_seconds')
+                )
+                ->whereNotNull('city')
+                ->where('city', '!=', '')
+                ->groupBy('city', 'country', 'country_code')
+                ->orderByDesc('device_count')
+                ->take(8)
+                ->get()
+                ->map(function ($city) use ($totalDevices) {
+                    $city->share_pct = $totalDevices > 0 ? round(($city->device_count / $totalDevices) * 100, 1) : 0;
+                    $city->formatted_watch_time = $this->formatSeconds((int)$city->total_watch_seconds);
+                    $flag = '🌐';
+                    if ($city->country_code && strlen($city->country_code) === 2) {
+                        $c1 = ord(strtoupper($city->country_code[0])) - 65 + 0x1F1E6;
+                        $c2 = ord(strtoupper($city->country_code[1])) - 65 + 0x1F1E6;
+                        $flag = mb_chr($c1, 'UTF-8') . mb_chr($c2, 'UTF-8');
+                    }
+                    $city->flag = $flag;
+                    return $city;
+                });
+
+            // Filtered Real-Time Traffic Feed
+            $trafficQuery = Device::query();
+            if ($countryFilter = $request->query('country')) {
+                $trafficQuery->where('country_code', $countryFilter);
+            }
+            if ($platformFilter = $request->query('platform')) {
+                $trafficQuery->where('platform', $platformFilter);
+            }
+            if ($search = $request->query('search')) {
+                $trafficQuery->where(function ($q) use ($search) {
+                    $q->where('city', 'like', "%{$search}%")
+                      ->orWhere('country', 'like', "%{$search}%")
+                      ->orWhere('ip_address', 'like', "%{$search}%")
+                      ->orWhere('device_id', 'like', "%{$search}%")
+                      ->orWhere('username', 'like', "%{$search}%")
+                      ->orWhere('device_name', 'like', "%{$search}%");
+                });
+            }
+
+            $trafficDevices = $trafficQuery->orderByDesc('last_active_at')->paginate(25)->withQueryString();
+
+            $stats = [
+                'totalDevices' => $totalDevices,
+                'totalCountries' => $totalCountries,
+                'totalCities' => $totalCities,
+                'totalWatchTime' => $this->formatSeconds($totalWatchSeconds),
+                'totalSessions' => $totalSessions,
+                'totalBandwidth' => $totalBandwidth,
+                'domesticDevices' => $domesticDevices,
+                'internationalDevices' => $internationalDevices,
+                'domesticPct' => $domesticPct,
+                'internationalPct' => $internationalPct,
+            ];
+
+        } catch (Throwable) {
+            $stats = [
+                'totalDevices' => 0, 'totalCountries' => 0, 'totalCities' => 0,
+                'totalWatchTime' => '0 min', 'totalSessions' => 0, 'totalBandwidth' => '0 MB',
+                'domesticDevices' => 0, 'internationalDevices' => 0,
+                'domesticPct' => 0, 'internationalPct' => 0,
+            ];
+            $countries = collect();
+            $topCities = collect();
+            $trafficDevices = new LengthAwarePaginator([], 0, 25);
+        }
+
+        return view('admin.traffic', compact('stats', 'countries', 'topCities', 'trafficDevices'));
     }
 
     // 7. Client App Error Telemetry Logs Page

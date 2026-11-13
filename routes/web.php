@@ -32,6 +32,7 @@ Route::prefix('admin')->group(function () {
 
         // Active Devices Fleet
         Route::get('/devices', [DashboardController::class, 'devices'])->name('admin.devices.index');
+        Route::get('/traffic', [DashboardController::class, 'traffic'])->name('admin.traffic.index');
         Route::get('/devices/{deviceId}', [DashboardController::class, 'showDevice'])->name('admin.devices.show');
         Route::post('/devices/{deviceId}/rename', [DashboardController::class, 'renameDevice'])->name('admin.devices.rename');
 
