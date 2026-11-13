@@ -126,8 +126,8 @@ class DashboardController extends Controller
                 ->where("starts_at", ">=", now()->startOfMonth())
                 ->sum("amount");
             $activeSubscribers = Subscription::active()->count();
-            $totalSearches = Schema::hasTable('search_logs') ? SearchLog::count() : 0;
-            $todaySearches = Schema::hasTable('search_logs') ? SearchLog::where('created_at', '>=', now()->startOfDay())->count() : 0;
+            $totalSearches = Schema::hasTable('search_logs') ? SearchLog::whereNotNull('title')->where('title', '!=', '')->count() : 0;
+            $todaySearches = Schema::hasTable('search_logs') ? SearchLog::whereNotNull('title')->where('title', '!=', '')->where('created_at', '>=', now()->startOfDay())->count() : 0;
 
             $stats = [
                 'totalDevices' => $totalDevicesCount,

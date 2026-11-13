@@ -258,6 +258,13 @@ class TelemetryController extends Controller
             'year' => 'nullable|string|max:16',
         ]);
 
+        if (empty($validated['title'])) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Search noted; awaiting media title link.',
+            ], 200);
+        }
+
         $searchLog = \App\Models\SearchLog::create([
             'device_id' => $validated['device_id'] ?? $request->header('X-Device-Id'),
             'username' => $validated['username'] ?? $request->header('X-Username'),
