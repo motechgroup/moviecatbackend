@@ -1300,72 +1300,126 @@ class DashboardController extends Controller
         return back()->with('success', 'Password successfully updated! Your account is secure.');
     }
 
-    // 6. User Search Analytics & Discovery
+    // 6. User Search Analytics & Title Demand Metrics
     public function searches(Request $request): View
     {
         try {
-            $query = SearchLog::with('device')->latest();
+            $search = trim((string)$request->query('q', ''));
+            $type = $request->query('type');
+            $period = $request->query('period', 'all');
+            $sort = $request->query('sort', 'count');
 
-            if ($search = trim((string)$request->query('q', ''))) {
-                $query->where(function ($q) use ($search) {
-                    $q->where('query', 'like', "%{$search}%")
-                      ->orWhere('title', 'like', "%{$search}%")
+            // 1. Base Aggregated Title Demand Query
+            $titleQuery = SearchLog::select([
+                DB::raw("COALESCE(NULLIF(title, ''), query) as display_title"),
+                DB::raw("MAX(poster) as poster"),
+                DB::raw("MAX(media_type) as media_type"),
+                DB::raw("MAX(year) as year"),
+                DB::raw("MAX(media_id) as media_id"),
+                DB::raw("COUNT(*) as search_count"),
+                DB::raw("COUNT(DISTINCT device_id) as unique_devices"),
+                DB::raw("COUNT(DISTINCT username) as unique_users"),
+                DB::raw("MAX(created_at) as last_searched_at"),
+                DB::raw("GROUP_CONCAT(DISTINCT query SEPARATOR ' • ') as sample_queries"),
+            ]);
+
+            if ($period === 'today') {
+                $titleQuery->where('created_at', '>=', now()->startOfDay());
+            } elseif ($period === 'week') {
+                $titleQuery->where('created_at', '>=', now()->subDays(7));
+            } elseif ($period === 'month') {
+                $titleQuery->where('created_at', '>=', now()->subDays(30));
+            }
+
+            if ($type && in_array($type, ['movie', 'tv'])) {
+                $titleQuery->where('media_type', $type);
+            }
+
+            if ($search) {
+                $titleQuery->where(function ($q) use ($search) {
+                    $q->where('title', 'like', "%{$search}%")
+                      ->orWhere('query', 'like', "%{$search}%")
                       ->orWhere('username', 'like', "%{$search}%")
                       ->orWhere('device_id', 'like', "%{$search}%");
                 });
             }
 
-            if ($type = $request->query('type')) {
-                $query->where('media_type', $type);
+            $titleQuery->groupBy('display_title');
+
+            if ($sort === 'recent') {
+                $titleQuery->orderByDesc('last_searched_at');
+            } elseif ($sort === 'reach') {
+                $titleQuery->orderByDesc('unique_devices')->orderByDesc('search_count');
+            } else {
+                $titleQuery->orderByDesc('search_count')->orderByDesc('last_searched_at');
             }
 
-            if ($linked = $request->query('linked')) {
-                if ($linked === 'yes') {
-                    $query->whereNotNull('title');
-                } elseif ($linked === 'no') {
-                    $query->whereNull('title');
-                }
-            }
+            $titles = $titleQuery->paginate(25)->withQueryString();
 
-            $searches = $query->paginate(20)->withQueryString();
-
-            $totalSearches = SearchLog::count();
+            // 2. High-Level Metrics
+            $totalSearchEvents = SearchLog::count();
             $todaySearches = SearchLog::where('created_at', '>=', now()->startOfDay())->count();
-            $linkedCount = SearchLog::whereNotNull('title')->count();
-            $conversionRate = $totalSearches > 0 ? round(($linkedCount / $totalSearches) * 100, 1) : 0;
-            $uniqueQueries = SearchLog::distinct('query')->count('query');
+            $weekSearches = SearchLog::where('created_at', '>=', now()->subDays(7))->count();
+            $uniqueTitlesCount = SearchLog::select(DB::raw("COALESCE(NULLIF(title, ''), query) as display_title"))
+                ->distinct()
+                ->count();
+
+            $topSearched = SearchLog::select(DB::raw("COALESCE(NULLIF(title, ''), query) as display_title"), DB::raw("COUNT(*) as count"))
+                ->groupBy('display_title')
+                ->orderByDesc('count')
+                ->first();
+
+            $movieSearches = SearchLog::where('media_type', 'movie')->count();
+            $tvSearches = SearchLog::where('media_type', 'tv')->count();
+            $mediaTypedTotal = $movieSearches + $tvSearches;
+            $moviePercentage = $mediaTypedTotal > 0 ? round(($movieSearches / $mediaTypedTotal) * 100, 1) : 50;
+            $tvPercentage = $mediaTypedTotal > 0 ? round(($tvSearches / $mediaTypedTotal) * 100, 1) : 50;
+            $uniqueDevicesCount = SearchLog::distinct('device_id')->count('device_id');
 
             $stats = [
-                'total' => $totalSearches,
+                'total' => $totalSearchEvents,
                 'today' => $todaySearches,
-                'linked' => $linkedCount,
-                'conversionRate' => $conversionRate,
-                'uniqueQueries' => $uniqueQueries,
+                'week' => $weekSearches,
+                'uniqueTitles' => $uniqueTitlesCount,
+                'uniqueDevices' => $uniqueDevicesCount,
+                'topTitle' => $topSearched ? $topSearched->display_title : 'None',
+                'topTitleCount' => $topSearched ? $topSearched->count : 0,
+                'moviePercentage' => $moviePercentage,
+                'tvPercentage' => $tvPercentage,
+                'movieSearches' => $movieSearches,
+                'tvSearches' => $tvSearches,
             ];
 
-            // Top Trending Search Queries
-            $topQueries = SearchLog::select('query', DB::raw('count(*) as count'), DB::raw('max(created_at) as last_searched_at'))
-                ->groupBy('query')
-                ->orderByDesc('count')
-                ->take(10)
+            // 3. Top 6 Showcase Visual Cards
+            $topShowcase = SearchLog::select([
+                    DB::raw("COALESCE(NULLIF(title, ''), query) as display_title"),
+                    DB::raw("MAX(poster) as poster"),
+                    DB::raw("MAX(media_type) as media_type"),
+                    DB::raw("MAX(year) as year"),
+                    DB::raw("COUNT(*) as search_count"),
+                    DB::raw("COUNT(DISTINCT device_id) as unique_devices"),
+                    DB::raw("MAX(created_at) as last_searched_at"),
+                ])
+                ->groupBy('display_title')
+                ->orderByDesc('search_count')
+                ->take(6)
                 ->get();
 
-            // Most Linked/Discovered Movies & TV Series from Search
-            $topLinkedMedia = SearchLog::select('title', 'poster', 'media_id', 'media_type', 'year', DB::raw('count(*) as count'))
-                ->whereNotNull('title')
-                ->groupBy('title', 'poster', 'media_id', 'media_type', 'year')
-                ->orderByDesc('count')
-                ->take(8)
-                ->get();
+            // 4. Live Recent Title Stream
+            $recentStream = SearchLog::latest()->take(10)->get();
 
-        } catch (Throwable) {
-            $searches = new LengthAwarePaginator([], 0, 20);
-            $stats = ['total' => 0, 'today' => 0, 'linked' => 0, 'conversionRate' => 0, 'uniqueQueries' => 0];
-            $topQueries = collect();
-            $topLinkedMedia = collect();
+        } catch (Throwable $e) {
+            $titles = new LengthAwarePaginator([], 0, 25);
+            $stats = [
+                'total' => 0, 'today' => 0, 'week' => 0, 'uniqueTitles' => 0,
+                'uniqueDevices' => 0, 'topTitle' => 'None', 'topTitleCount' => 0,
+                'moviePercentage' => 0, 'tvPercentage' => 0, 'movieSearches' => 0, 'tvSearches' => 0,
+            ];
+            $topShowcase = collect();
+            $recentStream = collect();
         }
 
-        return view('admin.searches', compact('searches', 'stats', 'topQueries', 'topLinkedMedia'));
+        return view('admin.searches', compact('titles', 'stats', 'topShowcase', 'recentStream'));
     }
 
 }
