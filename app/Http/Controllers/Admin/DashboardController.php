@@ -329,7 +329,7 @@ class DashboardController extends Controller
 
             // Recent User Searches & Linked Media
             $recentSearches = Schema::hasTable('search_logs')
-                ? SearchLog::with('device')->latest()->take(6)->get()
+                ? SearchLog::whereNotNull('title')->where('title', '!=', '')->with('device')->latest()->take(6)->get()
                 : collect();
 
             // Business Value & Operational Intelligence Metrics
@@ -1300,7 +1300,7 @@ class DashboardController extends Controller
         return back()->with('success', 'Password successfully updated! Your account is secure.');
     }
 
-    // 6. User Search Analytics & Title Demand Metrics
+    // 6. User Search Analytics & Title Demand Metrics (Strictly Actual Discovered Titles)
     public function searches(Request $request): View
     {
         try {
@@ -1309,19 +1309,21 @@ class DashboardController extends Controller
             $period = $request->query('period', 'all');
             $sort = $request->query('sort', 'count');
 
-            // 1. Base Aggregated Title Demand Query
-            $titleQuery = SearchLog::select([
-                DB::raw("COALESCE(NULLIF(title, ''), query) as display_title"),
-                DB::raw("MAX(poster) as poster"),
-                DB::raw("MAX(media_type) as media_type"),
-                DB::raw("MAX(year) as year"),
-                DB::raw("MAX(media_id) as media_id"),
-                DB::raw("COUNT(*) as search_count"),
-                DB::raw("COUNT(DISTINCT device_id) as unique_devices"),
-                DB::raw("COUNT(DISTINCT username) as unique_users"),
-                DB::raw("MAX(created_at) as last_searched_at"),
-                DB::raw("GROUP_CONCAT(DISTINCT query SEPARATOR ' • ') as sample_queries"),
-            ]);
+            // 1. Base Query: STRICTLY actual discovered/retrieved titles (NO raw letters/keywords without titles)
+            $titleQuery = SearchLog::whereNotNull('title')
+                ->where('title', '!=', '')
+                ->select([
+                    'title as display_title',
+                    DB::raw("MAX(poster) as poster"),
+                    DB::raw("MAX(media_type) as media_type"),
+                    DB::raw("MAX(year) as year"),
+                    DB::raw("MAX(media_id) as media_id"),
+                    DB::raw("COUNT(*) as search_count"),
+                    DB::raw("COUNT(DISTINCT device_id) as unique_devices"),
+                    DB::raw("COUNT(DISTINCT username) as unique_users"),
+                    DB::raw("MAX(created_at) as last_searched_at"),
+                    DB::raw("GROUP_CONCAT(DISTINCT query SEPARATOR ' • ') as sample_queries"),
+                ]);
 
             if ($period === 'today') {
                 $titleQuery->where('created_at', '>=', now()->startOfDay());
@@ -1344,7 +1346,7 @@ class DashboardController extends Controller
                 });
             }
 
-            $titleQuery->groupBy('display_title');
+            $titleQuery->groupBy('title');
 
             if ($sort === 'recent') {
                 $titleQuery->orderByDesc('last_searched_at');
@@ -1356,25 +1358,26 @@ class DashboardController extends Controller
 
             $titles = $titleQuery->paginate(25)->withQueryString();
 
-            // 2. High-Level Metrics
-            $totalSearchEvents = SearchLog::count();
-            $todaySearches = SearchLog::where('created_at', '>=', now()->startOfDay())->count();
-            $weekSearches = SearchLog::where('created_at', '>=', now()->subDays(7))->count();
-            $uniqueTitlesCount = SearchLog::select(DB::raw("COALESCE(NULLIF(title, ''), query) as display_title"))
-                ->distinct()
-                ->count();
+            // 2. High-Level Metrics (Strictly Title-Based)
+            $baseTitledQuery = SearchLog::whereNotNull('title')->where('title', '!=', '');
+            
+            $totalSearchEvents = (clone $baseTitledQuery)->count();
+            $todaySearches = (clone $baseTitledQuery)->where('created_at', '>=', now()->startOfDay())->count();
+            $weekSearches = (clone $baseTitledQuery)->where('created_at', '>=', now()->subDays(7))->count();
+            $uniqueTitlesCount = (clone $baseTitledQuery)->distinct('title')->count('title');
 
-            $topSearched = SearchLog::select(DB::raw("COALESCE(NULLIF(title, ''), query) as display_title"), DB::raw("COUNT(*) as count"))
-                ->groupBy('display_title')
+            $topSearched = (clone $baseTitledQuery)
+                ->select('title as display_title', DB::raw("COUNT(*) as count"))
+                ->groupBy('title')
                 ->orderByDesc('count')
                 ->first();
 
-            $movieSearches = SearchLog::where('media_type', 'movie')->count();
-            $tvSearches = SearchLog::where('media_type', 'tv')->count();
+            $movieSearches = (clone $baseTitledQuery)->where('media_type', 'movie')->count();
+            $tvSearches = (clone $baseTitledQuery)->where('media_type', 'tv')->count();
             $mediaTypedTotal = $movieSearches + $tvSearches;
             $moviePercentage = $mediaTypedTotal > 0 ? round(($movieSearches / $mediaTypedTotal) * 100, 1) : 50;
             $tvPercentage = $mediaTypedTotal > 0 ? round(($tvSearches / $mediaTypedTotal) * 100, 1) : 50;
-            $uniqueDevicesCount = SearchLog::distinct('device_id')->count('device_id');
+            $uniqueDevicesCount = (clone $baseTitledQuery)->distinct('device_id')->count('device_id');
 
             $stats = [
                 'total' => $totalSearchEvents,
@@ -1390,9 +1393,10 @@ class DashboardController extends Controller
                 'tvSearches' => $tvSearches,
             ];
 
-            // 3. Top 6 Showcase Visual Cards
-            $topShowcase = SearchLog::select([
-                    DB::raw("COALESCE(NULLIF(title, ''), query) as display_title"),
+            // 3. Top 6 Showcase Visual Cards (Strictly actual titles with posters)
+            $topShowcase = (clone $baseTitledQuery)
+                ->select([
+                    'title as display_title',
                     DB::raw("MAX(poster) as poster"),
                     DB::raw("MAX(media_type) as media_type"),
                     DB::raw("MAX(year) as year"),
@@ -1400,13 +1404,13 @@ class DashboardController extends Controller
                     DB::raw("COUNT(DISTINCT device_id) as unique_devices"),
                     DB::raw("MAX(created_at) as last_searched_at"),
                 ])
-                ->groupBy('display_title')
+                ->groupBy('title')
                 ->orderByDesc('search_count')
                 ->take(6)
                 ->get();
 
-            // 4. Live Recent Title Stream
-            $recentStream = SearchLog::latest()->take(10)->get();
+            // 4. Live Recent Title Stream (Strictly actual titles only)
+            $recentStream = (clone $baseTitledQuery)->latest()->take(10)->get();
 
         } catch (Throwable $e) {
             $titles = new LengthAwarePaginator([], 0, 25);

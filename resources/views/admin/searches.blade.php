@@ -1,4 +1,4 @@
-@extends('layouts.app', ['title' => 'Search Analytics & Content Demand'])
+@extends('layouts.app', ['title' => 'Discovered Titles Search Analytics'])
 
 @section('content')
 <div class="space-y-8 max-w-7xl mx-auto">
@@ -11,15 +11,15 @@
             <div class="flex items-center gap-2 flex-wrap">
                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
                     <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-                    Title-Level Search Analytics
+                    Discovered Titles Only
                 </span>
-                <span class="text-xs text-slate-400 font-mono">• Direct Content Demand</span>
+                <span class="text-xs text-slate-400 font-mono">• Raw Keystrokes Excluded</span>
             </div>
             <h1 class="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
-                <span>Titles Users Are Searching</span>
+                <span>Discovered Titles Search Metrics</span>
             </h1>
             <p class="text-xs sm:text-sm text-slate-400 max-w-2xl leading-relaxed">
-                Detailed metrics showing the specific movie and TV series titles users search for, audience reach per title, and search conversion to media streams.
+                Metrics showing strictly the actual movies and TV series titles searched and discovered by mobile users. Raw letters and unlinked search fragments are filtered out.
             </p>
         </div>
 
@@ -33,9 +33,9 @@
 
     <!-- KPI METRICS ROW -->
     <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <!-- 1. Total Searches -->
+        <!-- 1. Total Title Searches -->
         <div class="p-5 rounded-3xl glass-panel relative overflow-hidden border border-white/5 flex flex-col justify-between">
-            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Searches</div>
+            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Title Searches</div>
             <div class="text-3xl font-black text-white mt-1">{{ number_format($stats['total']) }}</div>
             <div class="text-[11px] text-emerald-400 mt-2 font-mono flex items-center gap-1">
                 <span>+{{ number_format($stats['today']) }} today</span>
@@ -47,7 +47,7 @@
             <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Unique Titles Discovered</div>
             <div class="text-3xl font-black text-amber-400 mt-1">{{ number_format($stats['uniqueTitles']) }}</div>
             <div class="text-[11px] text-slate-400 mt-2 font-mono">
-                <span>Different titles searched</span>
+                <span>Distinct movie/TV titles</span>
             </div>
         </div>
 
@@ -62,24 +62,23 @@
             </div>
         </div>
 
-        <!-- 4. Content Mix (Movies vs Series) -->
+        <!-- 4. Content Demand Mix -->
         <div class="p-5 rounded-3xl glass-panel relative overflow-hidden border border-white/5 flex flex-col justify-between">
-            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Content Demand Mix</div>
+            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Format Demand Split</div>
             <div class="flex items-center gap-2 mt-1">
                 <span class="text-xs font-bold text-sky-400">Movies {{ $stats['moviePercentage'] }}%</span>
                 <span class="text-slate-600">/</span>
                 <span class="text-xs font-bold text-purple-400">TV {{ $stats['tvPercentage'] }}%</span>
             </div>
-            <!-- Progress Bar -->
             <div class="w-full bg-slate-800 rounded-full h-1.5 mt-2 overflow-hidden flex">
                 <div class="bg-sky-400 h-1.5" style="width: {{ $stats['moviePercentage'] }}%"></div>
                 <div class="bg-purple-400 h-1.5" style="width: {{ $stats['tvPercentage'] }}%"></div>
             </div>
         </div>
 
-        <!-- 5. Active User Reach -->
+        <!-- 5. Unique Devices -->
         <div class="p-5 rounded-3xl glass-panel relative overflow-hidden border border-white/5 flex flex-col justify-between">
-            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Unique Searchers</div>
+            <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Audience Reach</div>
             <div class="text-3xl font-black text-cyan-400 mt-1">{{ number_format($stats['uniqueDevices']) }}</div>
             <div class="text-[11px] text-slate-400 mt-2 font-mono">
                 <span>Unique mobile devices</span>
@@ -92,9 +91,9 @@
         <div class="flex items-center justify-between">
             <h2 class="text-lg font-extrabold text-white flex items-center gap-2">
                 <span class="text-xl">🏆</span>
-                <span>Top Searched Titles Leaderboard</span>
+                <span>Top Discovered Titles</span>
             </h2>
-            <span class="text-xs font-mono text-slate-400">Highest search volume across app</span>
+            <span class="text-xs font-mono text-slate-400">Ranked by user search volume</span>
         </div>
 
         <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -133,7 +132,7 @@
                 </div>
             @empty
                 <div class="col-span-full py-8 text-center text-xs text-slate-500">
-                    No title searches recorded yet.
+                    No discovered title searches recorded yet.
                 </div>
             @endforelse
         </div>
@@ -148,21 +147,19 @@
                     type="text"
                     name="q"
                     value="{{ request('q') }}"
-                    placeholder="Search by title name, keyword, device, or user..."
+                    placeholder="Search by title name, actor, or user..."
                     class="w-full bg-[#12131A] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-400"
                 />
             </div>
 
             <!-- Filters -->
             <div class="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
-                <!-- Type Filter -->
                 <select name="type" class="bg-[#12131A] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-amber-400">
                     <option value="">All Formats (Movies & Series)</option>
                     <option value="movie" {{ request('type') === 'movie' ? 'selected' : '' }}>Movies Only</option>
                     <option value="tv" {{ request('type') === 'tv' ? 'selected' : '' }}>TV Series Only</option>
                 </select>
 
-                <!-- Period Filter -->
                 <select name="period" class="bg-[#12131A] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-amber-400">
                     <option value="all" {{ request('period') === 'all' || !request('period') ? 'selected' : '' }}>All Time</option>
                     <option value="today" {{ request('period') === 'today' ? 'selected' : '' }}>Today (Last 24h)</option>
@@ -170,7 +167,6 @@
                     <option value="month" {{ request('period') === 'month' ? 'selected' : '' }}>Last 30 Days</option>
                 </select>
 
-                <!-- Sort Filter -->
                 <select name="sort" class="bg-[#12131A] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-amber-400">
                     <option value="count" {{ request('sort') === 'count' || !request('sort') ? 'selected' : '' }}>Sort: Most Searched</option>
                     <option value="recent" {{ request('sort') === 'recent' ? 'selected' : '' }}>Sort: Most Recent</option>
@@ -196,12 +192,12 @@
             <div>
                 <h3 class="text-base font-bold text-white flex items-center gap-2">
                     <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-                    <span>Detailed Title Search Demand Metrics</span>
+                    <span>Discovered Titles Demand Metrics</span>
                 </h3>
-                <p class="text-xs text-slate-400 mt-0.5">Showing exact titles requested by mobile users, audience reach, and the search terms that triggered them.</p>
+                <p class="text-xs text-slate-400 mt-0.5">Showing actual movie and TV titles discovered through user search intent.</p>
             </div>
             <div class="text-xs font-mono text-slate-400">
-                <span>{{ $titles->total() }} unique titles</span>
+                <span>{{ $titles->total() }} titles found</span>
             </div>
         </div>
 
@@ -210,10 +206,10 @@
                 <thead class="bg-white/[0.02] text-slate-400 font-mono text-[10px] uppercase border-b border-white/5">
                     <tr>
                         <th class="py-3 px-4 w-12 text-center">#</th>
-                        <th class="py-3 px-4 min-w-[240px]">Searched Title</th>
+                        <th class="py-3 px-4 min-w-[240px]">Discovered Title</th>
                         <th class="py-3 px-4 text-center">Search Volume</th>
                         <th class="py-3 px-4 text-center">Audience Reach</th>
-                        <th class="py-3 px-4 min-w-[200px]">Queries Used to Find</th>
+                        <th class="py-3 px-4 min-w-[200px]">Search Queries Used</th>
                         <th class="py-3 px-4 text-right">Last Searched</th>
                     </tr>
                 </thead>
@@ -224,12 +220,10 @@
                             $percent = $stats['total'] > 0 ? round(($item->search_count / $stats['total']) * 100, 1) : 0;
                         @endphp
                         <tr class="hover:bg-white/[0.03] transition-colors">
-                            <!-- Rank -->
                             <td class="py-3.5 px-4 text-center font-mono font-bold text-slate-400">
                                 {{ $rank }}
                             </td>
 
-                            <!-- Title & Poster -->
                             <td class="py-3.5 px-4">
                                 <div class="flex items-center gap-3">
                                     @if($item->poster)
@@ -258,7 +252,6 @@
                                 </div>
                             </td>
 
-                            <!-- Search Volume & Share -->
                             <td class="py-3.5 px-4 text-center">
                                 <div class="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-amber-500/15 text-amber-300 border border-amber-500/30 font-bold font-mono text-xs">
                                     {{ number_format($item->search_count) }} searches
@@ -268,7 +261,6 @@
                                 </div>
                             </td>
 
-                            <!-- Audience Reach -->
                             <td class="py-3.5 px-4 text-center">
                                 <div class="text-xs font-bold text-white font-mono">
                                     {{ $item->unique_devices }} {{ Str::plural('device', $item->unique_devices) }}
@@ -278,18 +270,20 @@
                                 </div>
                             </td>
 
-                            <!-- Queries Used to Find -->
                             <td class="py-3.5 px-4">
                                 <div class="flex flex-wrap gap-1.5 max-w-xs">
-                                    @foreach(array_slice(explode(' • ', $item->sample_queries), 0, 4) as $queryWord)
-                                        <span class="px-2 py-0.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 font-mono text-[11px]">
-                                            "{{ $queryWord }}"
-                                        </span>
-                                    @endforeach
+                                    @if($item->sample_queries)
+                                        @foreach(array_slice(explode(' • ', $item->sample_queries), 0, 4) as $queryWord)
+                                            <span class="px-2 py-0.5 rounded-lg bg-white/5 border border-white/10 text-slate-300 font-mono text-[11px]">
+                                                "{{ $queryWord }}"
+                                            </span>
+                                        @endforeach
+                                    @else
+                                        <span class="text-slate-500 font-mono text-[11px] italic">Direct match</span>
+                                    @endif
                                 </div>
                             </td>
 
-                            <!-- Last Searched -->
                             <td class="py-3.5 px-4 text-right font-mono text-[11px] text-slate-400">
                                 <div class="text-white font-semibold">
                                     {{ \Carbon\Carbon::parse($item->last_searched_at)->diffForHumans() }}
@@ -302,7 +296,7 @@
                     @empty
                         <tr>
                             <td colspan="6" class="py-14 text-center text-slate-400">
-                                No searched titles matching your filters.
+                                No discovered titles found matching your filters.
                             </td>
                         </tr>
                     @endforelse
@@ -322,9 +316,9 @@
         <div class="flex items-center justify-between border-b border-white/5 pb-3">
             <h3 class="text-sm font-bold text-white flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                <span>Real-Time Title Search Stream (Latest Activity)</span>
+                <span>Real-Time Discovered Title Activity</span>
             </h3>
-            <span class="text-xs text-slate-500 font-mono">Last 10 user searches</span>
+            <span class="text-xs text-slate-500 font-mono">Last 10 discovered titles</span>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -338,10 +332,10 @@
                         @endif
                         <div class="overflow-hidden">
                             <div class="text-xs font-bold text-white truncate">
-                                {{ $streamItem->title ?: $streamItem->query }}
+                                {{ $streamItem->title }}
                             </div>
                             <div class="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
-                                Query: "<span class="text-amber-300">{{ $streamItem->query }}</span>" • By {{ $streamItem->username ?: 'Guest User' }}
+                                Searched: "<span class="text-amber-300">{{ $streamItem->query }}</span>" • By {{ $streamItem->username ?: ($streamItem->device->username ?? 'Guest User') }}
                             </div>
                         </div>
                     </div>
@@ -351,7 +345,7 @@
                 </div>
             @empty
                 <div class="col-span-full py-4 text-center text-xs text-slate-500">
-                    No recent search events.
+                    No recent discovered title events.
                 </div>
             @endforelse
         </div>
