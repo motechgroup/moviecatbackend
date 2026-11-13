@@ -598,56 +598,106 @@ class DashboardController extends Controller
             }
 
             if ($status = $request->query('status')) {
-                $query->where('status', $status);
+                if ($status === 'offline_watched') {
+                    $query->where('status', 'offline_watched');
+                } elseif ($status === 'completed') {
+                    $query->where('status', 'completed');
+                } elseif ($status === 'downloading') {
+                    $query->where('status', 'downloading');
+                } elseif ($status === 'all_vault') {
+                    $query->whereIn('status', ['completed', 'offline_watched']);
+                }
             }
 
-            $downloads = $query->orderByDesc('created_at')->paginate(20)->withQueryString();
+            if ($period = $request->query('period')) {
+                if ($period === 'today') {
+                    $query->where('created_at', '>=', now()->startOfDay());
+                } elseif ($period === 'week') {
+                    $query->where('created_at', '>=', now()->subDays(7));
+                } elseif ($period === 'month') {
+                    $query->where('created_at', '>=', now()->subDays(30));
+                }
+            }
 
-            $totalBytes = (int)DownloadEvent::where('status', 'completed')->sum('file_size_bytes');
+            $sort = $request->query('sort', 'recent');
+            if ($sort === 'size') {
+                $query->orderByDesc('file_size_bytes');
+            } elseif ($sort === 'oldest') {
+                $query->orderBy('created_at');
+            } else {
+                $query->orderByDesc('created_at');
+            }
+
+            $downloads = $query->paginate(25)->withQueryString();
+
+            // Analytical Bento Metrics
+            $totalEvents = DownloadEvent::count();
+            $completedCount = DownloadEvent::whereIn('status', ['completed', 'offline_watched'])->count();
+            $offlineWatchedCount = DownloadEvent::where('status', 'offline_watched')->count();
+            $activeDownloadingCount = DownloadEvent::where('status', 'downloading')->count();
+            $totalBytes = (int)DownloadEvent::whereIn('status', ['completed', 'offline_watched'])->sum('file_size_bytes');
+            $uniqueVaultDevices = DownloadEvent::distinct('device_id')->count('device_id');
+            $offlineConversionRate = $completedCount > 0 ? round(($offlineWatchedCount / $completedCount) * 100, 1) : 0;
+            $movieDownloads = DownloadEvent::where('media_type', 'movie')->count();
+            $tvDownloads = DownloadEvent::where('media_type', 'tv')->count();
+            $totalType = $movieDownloads + $tvDownloads;
+            $moviePct = $totalType > 0 ? round(($movieDownloads / $totalType) * 100, 1) : 50;
+            $tvPct = $totalType > 0 ? round(($tvDownloads / $totalType) * 100, 1) : 50;
 
             $stats = [
-                'total' => DownloadEvent::count(),
-                'completed' => DownloadEvent::where('status', 'completed')->count(),
-                'offlineWatched' => DownloadEvent::where('status', 'offline_watched')->count(),
+                'total' => $totalEvents,
+                'completed' => $completedCount,
+                'offlineWatched' => $offlineWatchedCount,
+                'activeDownloading' => $activeDownloadingCount,
                 'totalData' => $this->formatBytes($totalBytes),
-                'uniqueDevices' => DownloadEvent::distinct('device_id')->count('device_id'),
+                'uniqueDevices' => $uniqueVaultDevices,
+                'offlineConversionRate' => $offlineConversionRate,
+                'moviePct' => $moviePct,
+                'tvPct' => $tvPct,
+                'movieDownloads' => $movieDownloads,
+                'tvDownloads' => $tvDownloads,
             ];
 
-            // Top Downloaded Movies (Real Active & Completed Data)
-            $topMovies = DownloadEvent::select('title', 'poster', 'media_id', DB::raw('count(*) as count'), DB::raw('sum(file_size_bytes) as bytes'))
-                ->where('media_type', 'movie')
-                ->whereIn('status', ['completed', 'offline_watched', 'downloading'])
-                ->groupBy('title', 'poster', 'media_id')
-                ->orderByDesc('count')
-                ->take(8)
+            // Top Downloaded & Saved Titles Leaderboard (Top 6)
+            $topTitles = DownloadEvent::select([
+                    'title',
+                    DB::raw('MAX(poster) as poster'),
+                    DB::raw('MAX(media_type) as media_type'),
+                    DB::raw('MAX(media_id) as media_id'),
+                    DB::raw('count(*) as download_count'),
+                    DB::raw("sum(case when status = 'offline_watched' then 1 else 0 end) as offline_watched_count"),
+                    DB::raw('sum(file_size_bytes) as total_bytes'),
+                    DB::raw('count(distinct device_id) as unique_devices'),
+                ])
+                ->groupBy('title')
+                ->orderByDesc('download_count')
+                ->take(6)
                 ->get()
                 ->map(function ($item) {
-                    $item->formatted_size = $this->formatBytes((int)$item->bytes);
+                    $item->formatted_size = $this->formatBytes((int)$item->total_bytes);
                     return $item;
                 });
 
-            // Top Downloaded TV Series (Real Active & Completed Data)
-            $topSeries = DownloadEvent::select('title', 'poster', 'media_id', DB::raw('count(*) as count'), DB::raw('sum(file_size_bytes) as bytes'))
-                ->where('media_type', 'tv')
-                ->whereIn('status', ['completed', 'offline_watched', 'downloading'])
-                ->groupBy('title', 'poster', 'media_id')
-                ->orderByDesc('count')
-                ->take(8)
-                ->get()
-                ->map(function ($item) {
-                    $item->formatted_size = $this->formatBytes((int)$item->bytes);
-                    return $item;
-                });
+            // Recent Offline Watched Feed (Latest 6)
+            $recentOfflineActivity = DownloadEvent::with('device')
+                ->where('status', 'offline_watched')
+                ->orderByDesc('created_at')
+                ->take(6)
+                ->get();
 
         } catch (Throwable) {
-            $downloads = new LengthAwarePaginator([], 0, 20);
-            $stats = ['total' => 0, 'completed' => 0, 'offlineWatched' => 0, 'totalData' => '0 MB', 'uniqueDevices' => 0];
-            $topMovies = collect();
-            $topSeries = collect();
+            $downloads = new LengthAwarePaginator([], 0, 25);
+            $stats = [
+                'total' => 0, 'completed' => 0, 'offlineWatched' => 0, 'activeDownloading' => 0,
+                'totalData' => '0 MB', 'uniqueDevices' => 0, 'offlineConversionRate' => 0,
+                'moviePct' => 50, 'tvPct' => 50, 'movieDownloads' => 0, 'tvDownloads' => 0,
+            ];
+            $topTitles = collect();
+            $recentOfflineActivity = collect();
         }
 
         $downloadsEnabled = (bool)AppSetting::get('feature_downloads_enabled', true);
-        return view('admin.downloads', compact('downloads', 'stats', 'topMovies', 'topSeries', 'downloadsEnabled'));
+        return view('admin.downloads', compact('downloads', 'stats', 'topTitles', 'recentOfflineActivity', 'downloadsEnabled'));
     }
 
     // 5. AdMob Monetization Page
@@ -817,23 +867,101 @@ class DashboardController extends Controller
                 $query->where('media_type', $type);
             }
 
-            $history = $query->orderByDesc('last_watched_at')->paginate(20)->withQueryString();
+            if ($source = $request->query('source')) {
+                if ($source === 'offline') {
+                    $query->where('is_offline', true);
+                } elseif ($source === 'online') {
+                    $query->where('is_offline', false);
+                }
+            }
 
+            if ($status = $request->query('status')) {
+                if ($status === 'completed') {
+                    $query->where('completed', true);
+                } elseif ($status === 'in_progress') {
+                    $query->where('completed', false);
+                }
+            }
+
+            if ($period = $request->query('period')) {
+                if ($period === 'today') {
+                    $query->where('last_watched_at', '>=', now()->startOfDay());
+                } elseif ($period === 'week') {
+                    $query->where('last_watched_at', '>=', now()->subDays(7));
+                } elseif ($period === 'month') {
+                    $query->where('last_watched_at', '>=', now()->subDays(30));
+                }
+            }
+
+            $sort = $request->query('sort', 'recent');
+            if ($sort === 'progress') {
+                $query->orderByDesc('current_time');
+            } elseif ($sort === 'oldest') {
+                $query->orderBy('last_watched_at');
+            } else {
+                $query->orderByDesc('last_watched_at');
+            }
+
+            $history = $query->paginate(25)->withQueryString();
+
+            // High-Level KPIs
+            $totalCheckpoints = WatchProgress::count();
+            $completedWatches = WatchProgress::where('completed', true)->count();
+            $offlineWatches = WatchProgress::where('is_offline', true)->count();
+            $onlineWatches = WatchProgress::where('is_offline', false)->count();
             $totalSeconds = (int)WatchProgress::sum('current_time');
+            $uniqueDevices = WatchProgress::distinct('device_id')->count('device_id');
+            $moviesCount = WatchProgress::where('media_type', 'movie')->count();
+            $tvCount = WatchProgress::where('media_type', 'tv')->count();
+            $totalType = $moviesCount + $tvCount;
+            $moviePct = $totalType > 0 ? round(($moviesCount / $totalType) * 100, 1) : 50;
+            $tvPct = $totalType > 0 ? round(($tvCount / $totalType) * 100, 1) : 50;
 
             $stats = [
-                'totalCheckpoints' => WatchProgress::count(),
-                'completed' => WatchProgress::where('completed', true)->count(),
-                'movies' => WatchProgress::where('media_type', 'movie')->count(),
-                'series' => WatchProgress::where('media_type', 'tv')->count(),
+                'totalCheckpoints' => $totalCheckpoints,
+                'completed' => $completedWatches,
+                'offlineWatches' => $offlineWatches,
+                'onlineWatches' => $onlineWatches,
                 'totalWatchTime' => $this->formatSeconds($totalSeconds),
+                'uniqueDevices' => $uniqueDevices,
+                'movies' => $moviesCount,
+                'series' => $tvCount,
+                'moviePct' => $moviePct,
+                'tvPct' => $tvPct,
+                'completionRate' => $totalCheckpoints > 0 ? round(($completedWatches / $totalCheckpoints) * 100, 1) : 0,
             ];
+
+            // Top Viewed Titles Showcase (Top 6)
+            $topViewed = WatchProgress::select([
+                    'title',
+                    DB::raw('MAX(poster) as poster'),
+                    DB::raw('MAX(media_type) as media_type'),
+                    DB::raw('MAX(media_id) as media_id'),
+                    DB::raw('count(*) as view_count'),
+                    DB::raw("sum(case when is_offline = 1 then 1 else 0 end) as offline_count"),
+                    DB::raw('sum(current_time) as total_watch_seconds'),
+                    DB::raw('count(distinct device_id) as unique_devices'),
+                ])
+                ->groupBy('title')
+                ->orderByDesc('view_count')
+                ->take(6)
+                ->get()
+                ->map(function ($item) {
+                    $item->formatted_watch_time = $this->formatSeconds((int)$item->total_watch_seconds);
+                    return $item;
+                });
+
         } catch (Throwable) {
-            $history = new LengthAwarePaginator([], 0, 20);
-            $stats = ['totalCheckpoints' => 0, 'completed' => 0, 'movies' => 0, 'series' => 0, 'totalWatchTime' => '0 min'];
+            $history = new LengthAwarePaginator([], 0, 25);
+            $stats = [
+                'totalCheckpoints' => 0, 'completed' => 0, 'offlineWatches' => 0, 'onlineWatches' => 0,
+                'totalWatchTime' => '0 min', 'uniqueDevices' => 0, 'movies' => 0, 'series' => 0,
+                'moviePct' => 50, 'tvPct' => 50, 'completionRate' => 0,
+            ];
+            $topViewed = collect();
         }
 
-        return view('admin.watch-history', compact('history', 'stats'));
+        return view('admin.watch-history', compact('history', 'stats', 'topViewed'));
     }
 
     // 7. Client App Error Telemetry Logs Page

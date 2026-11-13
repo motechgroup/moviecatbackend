@@ -73,6 +73,7 @@ class SyncController extends Controller
             'current_time' => 'required|numeric',
             'duration' => 'required|numeric',
             'completed' => 'nullable|boolean',
+            'is_offline' => 'nullable|boolean',
             'device_id' => 'nullable|string',
         ]);
 
@@ -103,6 +104,7 @@ class SyncController extends Controller
                 'current_time' => $validated['current_time'],
                 'duration' => $validated['duration'],
                 'completed' => $validated['completed'] ?? false,
+                'is_offline' => $validated['is_offline'] ?? false,
                 'last_watched_at' => now(),
             ]);
 

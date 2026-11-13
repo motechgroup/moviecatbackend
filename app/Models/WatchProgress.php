@@ -22,6 +22,7 @@ class WatchProgress extends Model
         'current_time',
         'duration',
         'completed',
+        'is_offline',
         'last_watched_at',
     ];
 
@@ -33,6 +34,7 @@ class WatchProgress extends Model
             'current_time' => 'float',
             'duration' => 'float',
             'completed' => 'boolean',
+            'is_offline' => 'boolean',
             'last_watched_at' => 'datetime',
         ];
     }
