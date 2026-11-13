@@ -53,6 +53,7 @@ class TelemetryController extends Controller
             'error_message' => 'required|string',
             'error_type' => 'nullable|string|max:64',
             'screen' => 'nullable|string|max:64',
+            'module' => 'nullable|string|max:32',
             'severity' => 'nullable|string|in:fatal,error,warning',
             'stack_trace' => 'nullable|string',
             'metadata' => 'nullable|array',
@@ -87,11 +88,19 @@ class TelemetryController extends Controller
             } catch (\Throwable) {}
         }
 
+        $module = $validated['module'] ?? AppError::determineModule(
+            $validated['screen'] ?? null,
+            $validated['error_type'] ?? null,
+            $validated['error_message'],
+            $validated['metadata'] ?? null
+        );
+
         $error = AppError::create([
             'device_id' => $deviceId,
             'error_type' => $validated['error_type'] ?? 'app_error',
             'error_message' => $validated['error_message'],
             'screen' => $validated['screen'] ?? null,
+            'module' => $module,
             'severity' => $validated['severity'] ?? 'error',
             'stack_trace' => $validated['stack_trace'] ?? null,
             'metadata' => $validated['metadata'] ?? null,

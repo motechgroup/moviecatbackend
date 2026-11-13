@@ -1301,12 +1301,15 @@ class DashboardController extends Controller
     {
         $this->syncMissingDevices();
         try {
+            $modulesDef = AppError::getModulesDefinition();
+
             $query = AppError::with('device');
 
             if ($search = $request->query('search')) {
                 $query->where(function ($q) use ($search) {
                     $q->where('error_message', 'like', "%{$search}%")
                       ->orWhere('screen', 'like', "%{$search}%")
+                      ->orWhere('module', 'like', "%{$search}%")
                       ->orWhere('device_id', 'like', "%{$search}%")
                       ->orWhereHas('device', function ($dq) use ($search) {
                           $dq->where('username', 'like', "%{$search}%");
@@ -1322,33 +1325,83 @@ class DashboardController extends Controller
                 $query->where('screen', $screen);
             }
 
+            $activeModule = $request->query('module');
+            if ($activeModule && isset($modulesDef[$activeModule])) {
+                $query->where('module', $activeModule);
+            }
+
             if ($request->query('status') === 'unresolved') {
                 $query->where('resolved', false);
             } elseif ($request->query('status') === 'resolved') {
                 $query->where('resolved', true);
             }
 
-            $errors = $query->orderByDesc('created_at')->paginate(20)->withQueryString();
+            $viewMode = $request->query('view', 'grouped');
 
+            $perPage = $viewMode === 'grouped' ? 100 : 25;
+            $errors = $query->orderByDesc('created_at')->paginate($perPage)->withQueryString();
+
+            $totalErrorsCount = AppError::count();
             $stats = [
-                'total' => AppError::count(),
+                'total' => $totalErrorsCount,
                 'unresolved' => AppError::where('resolved', false)->count(),
                 'fatal' => AppError::where('severity', 'fatal')->count(),
                 'last24h' => AppError::where('created_at', '>=', now()->subHours(24))->count(),
             ];
+
+            // Module aggregation: count, unresolved, fatal, latest error for each module
+            $moduleStats = [];
+            foreach ($modulesDef as $key => $meta) {
+                $modTotal = AppError::where('module', $key)->count();
+                $modUnresolved = AppError::where('module', $key)->where('resolved', false)->count();
+                $modFatal = AppError::where('module', $key)->where('severity', 'fatal')->count();
+                $latest = AppError::where('module', $key)->latest('created_at')->value('created_at');
+
+                $pct = $totalErrorsCount > 0 ? round(($modTotal / $totalErrorsCount) * 100, 1) : 0;
+
+                $statusColor = 'emerald';
+                $statusLabel = 'Healthy';
+                if ($modFatal > 0 || $modUnresolved >= 10) {
+                    $statusColor = 'rose';
+                    $statusLabel = 'Critical';
+                } elseif ($modUnresolved > 0) {
+                    $statusColor = 'amber';
+                    $statusLabel = 'Attention';
+                }
+
+                $moduleStats[$key] = array_merge($meta, [
+                    'total' => $modTotal,
+                    'unresolved' => $modUnresolved,
+                    'fatal' => $modFatal,
+                    'latest_at' => $latest,
+                    'percentage' => $pct,
+                    'status_color' => $statusColor,
+                    'status_label' => $statusLabel,
+                ]);
+            }
+
+            // Group current results by module for module sectioning
+            $groupedErrors = $errors->getCollection()->groupBy(function ($item) {
+                return $item->module;
+            });
 
             $screens = AppError::select('screen', DB::raw('count(*) as count'))
                 ->whereNotNull('screen')
                 ->groupBy('screen')
                 ->orderByDesc('count')
                 ->get();
-        } catch (Throwable) {
-            $errors = new LengthAwarePaginator([], 0, 20);
+        } catch (Throwable $e) {
+            $errors = new LengthAwarePaginator([], 0, 25);
             $stats = ['total' => 0, 'unresolved' => 0, 'fatal' => 0, 'last24h' => 0];
+            $moduleStats = [];
+            $groupedErrors = collect();
+            $modulesDef = AppError::getModulesDefinition();
             $screens = collect();
+            $viewMode = 'grouped';
+            $activeModule = null;
         }
 
-        return view('admin.errors', compact('errors', 'stats', 'screens'));
+        return view('admin.errors', compact('errors', 'stats', 'screens', 'modulesDef', 'moduleStats', 'viewMode', 'activeModule', 'groupedErrors'));
     }
 
         // 7b. Export App Errors for Debugging (Markdown, JSON, CSV)
@@ -1374,6 +1427,10 @@ class DashboardController extends Controller
 
         if ($screen = $request->query('screen')) {
             $query->where('screen', $screen);
+        }
+
+        if ($module = $request->query('module')) {
+            $query->where('module', $module);
         }
 
         if ($request->query('status') === 'unresolved') {
@@ -1442,6 +1499,7 @@ class DashboardController extends Controller
                 fputcsv($file, [
                     'Error ID',
                     'Severity',
+                    'Module',
                     'Screen',
                     'Error Type',
                     'Error Message',
@@ -1460,6 +1518,7 @@ class DashboardController extends Controller
                     fputcsv($file, [
                         $e->id,
                         strtoupper($e->severity),
+                        $e->module,
                         $e->screen ?: 'global',
                         $e->error_type,
                         $e->error_message,
@@ -1564,6 +1623,14 @@ class DashboardController extends Controller
     {
         $deleted = AppError::where('resolved', true)->delete();
         return back()->with('success', "Cleared {$deleted} resolved error logs.");
+    }
+
+    public function resolveModuleErrors(Request $request, string $module): RedirectResponse
+    {
+        $updated = AppError::where('module', $module)->where('resolved', false)->update(['resolved' => true]);
+        $modMeta = AppError::getModulesDefinition()[$module] ?? null;
+        $modName = $modMeta['name'] ?? ucfirst($module);
+        return back()->with('success', "Marked {$updated} issues in '{$modName}' as resolved.");
     }
 
     // 8. Wipe Mock & Test Data Button

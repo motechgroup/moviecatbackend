@@ -19,7 +19,7 @@
                 Mobile App Error Telemetry & Debug Center
             </h1>
             <p class="text-xs text-slate-400 mt-1">
-                Real-time error logs and stack traces captured from client devices. Inspect full diagnostics and export structured debug reports directly for AI or developers.
+                Real-time error diagnostics grouped by mobile application modules (Player, Downloads, VIP, Search, Catalogue, History, Ads, Core).
             </p>
         </div>
 
@@ -43,7 +43,7 @@
                         <span class="text-base">📄</span>
                         <div>
                             <div class="font-bold">Debug Report (.md)</div>
-                            <div class="text-[10px] text-slate-400">Formatted for AI & Developers</div>
+                            <div class="text-[10px] text-slate-400">Formatted with Modules for AI</div>
                         </div>
                     </a>
                     <a href="{{ route('admin.errors.export', array_merge(request()->query(), ['format' => 'json'])) }}" 
@@ -51,7 +51,7 @@
                         <span class="text-base">⚙️</span>
                         <div>
                             <div class="font-bold">Raw JSON (.json)</div>
-                            <div class="text-[10px] text-slate-400">Structured telemetry array</div>
+                            <div class="text-[10px] text-slate-400">Structured telemetry array with module tags</div>
                         </div>
                     </a>
                     <a href="{{ route('admin.errors.export', array_merge(request()->query(), ['format' => 'csv'])) }}" 
@@ -59,14 +59,14 @@
                         <span class="text-base">📊</span>
                         <div>
                             <div class="font-bold">Spreadsheet CSV (.csv)</div>
-                            <div class="text-[10px] text-slate-400">Excel / Google Sheets tabular data</div>
+                            <div class="text-[10px] text-slate-400">Excel / Google Sheets with Module column</div>
                         </div>
                     </a>
                 </div>
             </div>
 
             <!-- Mark All Resolved Form -->
-            <form action="{{ route('admin.errors.resolveAll') }}" method="POST" onsubmit="return confirm('Mark all open error logs as resolved?')">
+            <form action="{{ route('admin.errors.resolveAll') }}" method="POST" onsubmit="return confirm('Mark all open error logs across all modules as resolved?')">
                 @csrf
                 <button type="submit" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-emerald-400 hover:text-emerald-300 text-xs font-semibold border border-white/10 transition-colors flex items-center gap-1.5">
                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
@@ -85,9 +85,9 @@
         </div>
     </div>
 
-    <!-- Metrics Grid -->
+    <!-- Overall Metrics Grid -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <a href="{{ route('admin.errors.index', ['status' => 'unresolved']) }}" class="glass-panel p-5 rounded-3xl hover:border-rose-500/30 transition-all block group">
+        <a href="{{ route('admin.errors.index', array_merge(request()->query(), ['status' => 'unresolved'])) }}" class="glass-panel p-5 rounded-3xl hover:border-rose-500/30 transition-all block group {{ request('status') === 'unresolved' ? 'border-rose-500/50 bg-rose-500/5' : '' }}">
             <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
                 <span>Unresolved Issues</span>
                 @if($stats['unresolved'] > 0)
@@ -101,7 +101,7 @@
             </div>
         </a>
 
-        <a href="{{ route('admin.errors.index', ['severity' => 'fatal']) }}" class="glass-panel p-5 rounded-3xl hover:border-amber-500/30 transition-all block group">
+        <a href="{{ route('admin.errors.index', array_merge(request()->query(), ['severity' => 'fatal'])) }}" class="glass-panel p-5 rounded-3xl hover:border-amber-500/30 transition-all block group {{ request('severity') === 'fatal' ? 'border-amber-500/50 bg-amber-500/5' : '' }}">
             <div class="flex items-center justify-between text-slate-400 text-xs font-semibold uppercase tracking-wider">
                 <span>Fatal Crashes</span>
                 <span class="text-amber-400">🔥</span>
@@ -119,19 +119,124 @@
             <div class="text-[11px] text-slate-400 mt-1">Recent telemetry velocity</div>
         </div>
 
-        <div class="glass-panel p-5 rounded-3xl">
+        <a href="{{ route('admin.errors.index') }}" class="glass-panel p-5 rounded-3xl hover:border-white/20 transition-all block group">
             <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Recorded</div>
             <div class="text-3xl font-black text-slate-300 mt-2">{{ $stats['total'] }}</div>
-            <div class="text-[11px] text-slate-400 mt-1">Lifetime captured issues</div>
+            <div class="text-[11px] text-slate-400 mt-1 flex items-center gap-1 group-hover:text-white transition-colors">
+                <span>Reset all filters</span>
+                <span>&rarr;</span>
+            </div>
+        </a>
+    </div>
+
+    <!-- APPLICATION MODULES HUB / BENTO GRID -->
+    <div class="space-y-3">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="text-base font-extrabold text-white tracking-tight">App Modules Health & Error Breakdown</span>
+                <span class="text-[10px] font-mono uppercase px-2 py-0.5 rounded-full bg-white/5 text-slate-400 border border-white/10">8 Core Modules</span>
+            </div>
+            @if(request('module'))
+                <a href="{{ route('admin.errors.index', request()->except('module')) }}" class="text-xs font-bold text-rose-400 hover:text-rose-300 flex items-center gap-1">
+                    <span>Clear Module Filter (Showing: {{ $modulesDef[request('module')]['name'] ?? request('module') }})</span>
+                    <span class="text-base">&times;</span>
+                </a>
+            @endif
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3.5">
+            @foreach($modulesDef as $mKey => $mDef)
+                @php
+                    $mStat = $moduleStats[$mKey] ?? [
+                        'total' => 0,
+                        'unresolved' => 0,
+                        'fatal' => 0,
+                        'percentage' => 0,
+                        'status_color' => 'emerald',
+                        'status_label' => 'Healthy',
+                    ];
+                    $isActiveMod = request('module') === $mKey;
+                @endphp
+                <a href="{{ route('admin.errors.index', array_merge(request()->query(), ['module' => $isActiveMod ? null : $mKey])) }}" 
+                   class="glass-panel p-4 rounded-2xl border transition-all block group relative overflow-hidden {{ $isActiveMod ? 'border-rose-500 bg-rose-500/10 shadow-lg shadow-rose-500/20' : 'hover:border-white/20 hover:bg-white/[0.03]' }}">
+                    
+                    <!-- Top row: Icon & Status Pill -->
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-2xl">{{ $mDef['icon'] }}</span>
+                            <div>
+                                <div class="font-extrabold text-white text-xs leading-tight group-hover:text-rose-300 transition-colors {{ $isActiveMod ? 'text-rose-300' : '' }}">
+                                    {{ $mDef['short_name'] }}
+                                </div>
+                                <div class="text-[10px] text-slate-400 mt-0.5">
+                                    {{ $mStat['total'] }} {{ Str::plural('issue', $mStat['total']) }} ({{ $mStat['percentage'] }}%)
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Status Badge -->
+                        @if($mStat['status_color'] === 'rose')
+                            <span class="px-2 py-0.5 rounded-full text-[9px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center gap-1 shrink-0">
+                                <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
+                                CRITICAL
+                            </span>
+                        @elseif($mStat['status_color'] === 'amber')
+                            <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
+                                ATTENTION
+                            </span>
+                        @else
+                            <span class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
+                                HEALTHY
+                            </span>
+                        @endif
+                    </div>
+
+                    <!-- Bottom row: Badges -->
+                    <div class="flex items-center gap-2 mt-3 pt-2.5 border-t border-white/5 flex-wrap">
+                        @if($mStat['unresolved'] > 0)
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/20">
+                                {{ $mStat['unresolved'] }} Open
+                            </span>
+                        @else
+                            <span class="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/20">
+                                0 Open
+                            </span>
+                        @endif
+
+                        @if($mStat['fatal'] > 0)
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                🔥 {{ $mStat['fatal'] }} Fatal
+                            </span>
+                        @endif
+
+                        <div class="ml-auto text-[10px] text-slate-500 font-mono">
+                            {{ $isActiveMod ? 'Filtered ✓' : 'Filter →' }}
+                        </div>
+                    </div>
+                </a>
+            @endforeach
         </div>
     </div>
 
-    <!-- Search & Filters -->
+    <!-- Search & Filter Controls -->
     <div class="glass-panel p-4 rounded-2xl">
         <form method="GET" action="{{ route('admin.errors.index') }}" class="flex flex-wrap items-center gap-2">
-            <div class="flex-1 min-w-[220px]">
+            <!-- Retain current view mode -->
+            <input type="hidden" name="view" value="{{ $viewMode }}">
+
+            <div class="flex-1 min-w-[200px]">
                 <input type="text" name="search" value="{{ request('search') }}" placeholder="Search error message, screen, device ID or handle..." class="w-full bg-[#12131A] border border-white/10 rounded-xl px-3.5 py-2 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-rose-500">
             </div>
+
+            <!-- Module Filter Dropdown -->
+            <select name="module" class="bg-[#12131A] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none">
+                <option value="">All App Modules</option>
+                @foreach($modulesDef as $k => $m)
+                    <option value="{{ $k }}" {{ request('module') === $k ? 'selected' : '' }}>
+                        {{ $m['icon'] }} {{ $m['name'] }} ({{ $moduleStats[$k]['total'] ?? 0 }})
+                    </option>
+                @endforeach
+            </select>
 
             <select name="severity" class="bg-[#12131A] border border-white/10 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none">
                 <option value="">All Severities</option>
@@ -156,278 +261,189 @@
             </select>
 
             <button type="submit" class="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold transition-all shadow-md shadow-rose-500/25">
-                Apply Filter
+                Apply Filters
             </button>
 
-            @if(request()->hasAny(['search', 'severity', 'screen', 'status']))
-                <a href="{{ route('admin.errors.index') }}" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 text-xs font-semibold transition-colors">
+            @if(request()->hasAny(['search', 'severity', 'screen', 'status', 'module']))
+                <a href="{{ route('admin.errors.index', ['view' => $viewMode]) }}" class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-slate-400 text-xs font-semibold transition-colors">
                     Reset
                 </a>
             @endif
         </form>
     </div>
 
-    <!-- Error Logs Table -->
-    <div class="glass-panel p-6 rounded-3xl space-y-4">
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
-                <thead>
-                    <tr class="border-b border-white/10 text-slate-400 uppercase tracking-wider text-[11px]">
-                        <th class="pb-3.5 font-semibold">Severity & Screen</th>
-                        <th class="pb-3.5 font-semibold">Error Message & Diagnostics</th>
-                        <th class="pb-3.5 font-semibold">Device & Environment</th>
-                        <th class="pb-3.5 font-semibold">Status</th>
-                        <th class="pb-3.5 font-semibold">Reported At</th>
-                        <th class="pb-3.5 font-semibold text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-white/5">
-                    @forelse($errors as $error)
-                        @php
-                            $dev = $error->device;
-                            $devId = $error->device_id ?: ($dev?->device_id ?? 'unknown');
-                            $devUser = $dev?->display_name ?: ($dev?->username ?? 'Anonymous Device');
-                            $platform = strtoupper($error->platform ?: ($dev?->platform ?? 'ANDROID'));
-                            $os = $dev?->os_version ?: 'OS';
-                            $appVer = $error->app_version ?: ($dev?->app_version ?? '1.0.0');
-                            $country = $dev?->country ?: 'Global';
-                            $countryFlag = $dev?->country_flag ?: '🌐';
-                            $ip = $dev?->ip_address ?: '127.0.0.1';
-                            $timeStr = $error->created_at ? $error->created_at->format('M d, Y H:i:s') : 'Unknown';
-
-                            // Format structured context metadata
-                            $metadataStr = '';
-                            $metaObj = [];
-                            if (!empty($error->metadata)) {
-                                if (is_array($error->metadata)) {
-                                    $metaObj = $error->metadata;
-                                } elseif (is_object($error->metadata)) {
-                                    $metaObj = (array)$error->metadata;
-                                } else {
-                                    $decoded = json_decode($error->metadata, true);
-                                    $metaObj = is_array($decoded) ? $decoded : [];
-                                }
-                                $metadataStr = !empty($metaObj) 
-                                    ? json_encode($metaObj, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
-                                    : (string)$error->metadata;
-                            }
-
-                            // Extract media details for crystal-clear debug understanding
-                            $mediaDetails = [];
-                            if (!empty($metaObj['title'])) $mediaDetails[] = "- **Media Title**: " . $metaObj['title'];
-                            if (!empty($metaObj['mediaType'])) $mediaDetails[] = "- **Media Type**: " . strtoupper($metaObj['mediaType']);
-                            if (isset($metaObj['season'])) $mediaDetails[] = "- **Season**: " . $metaObj['season'];
-                            if (isset($metaObj['episode'])) $mediaDetails[] = "- **Episode**: " . $metaObj['episode'];
-                            if (!empty($metaObj['mediaId'])) $mediaDetails[] = "- **Media ID**: " . $metaObj['mediaId'];
-                            if (isset($metaObj['isLocalMedia'])) $mediaDetails[] = "- **Storage**: " . ($metaObj['isLocalMedia'] ? 'Local Download (Offline Vault)' : 'Remote Online Streaming');
-
-                            $mediaContextBlock = !empty($mediaDetails) 
-                                ? implode("\n", $mediaDetails) . "\n" 
-                                : "- *No media context recorded*\n";
-
-                            $httpCode = null;
-                            if (preg_match('/Response code:\s*(\d+)/i', $error->error_message, $mMatches)) {
-                                $httpCode = $mMatches[1];
-                            }
-
-                            $promptText = "### 🐞 MovieCat Mobile App Debug Report\n\n" .
-                                "**Summary**: A client runtime exception was captured on the MovieCat mobile application. Please analyze the root cause and provide clear, step-by-step resolution instructions for both mobile client (React Native / Expo / ExoPlayer) and backend API / streaming server.\n\n" .
-                                "#### 1. Issue Overview\n" .
-                                "- **Issue ID**: #" . $error->id . " (" . $error->error_type . ")\n" .
-                                "- **Severity**: " . strtoupper($error->severity) . "\n" .
-                                "- **Screen**: `" . ($error->screen ?: 'global') . "`\n" .
-                                "- **Reported At**: " . $timeStr . " UTC\n\n" .
-                                "#### 2. Error Message & Diagnostics\n" .
-                                "```\n" . $error->error_message . "\n```\n\n" .
-                                "#### 3. Media & Playback Context\n" .
-                                $mediaContextBlock . "\n" .
-                                "#### 4. Client & Environment Telemetry\n" .
-                                "- **Device ID**: `" . $devId . "` (" . $devUser . ")\n" .
-                                "- **Platform & OS**: " . $platform . " " . $os . "\n" .
-                                "- **App Version**: v" . $appVer . "\n" .
-                                "- **Client IP**: `" . $ip . "`\n" .
-                                "- **Location**: " . $countryFlag . " " . $country . "\n\n" .
-                                "#### 5. Context Metadata (Raw JSON)\n" .
-                                "```json\n" . (!empty($metadataStr) ? $metadataStr : "{}\n") . "\n```\n\n" .
-                                (!empty($error->stack_trace) ? "#### 6. Stack Trace\n```\n" . $error->stack_trace . "\n```\n\n" : "") .
-                                "#### " . (!empty($error->stack_trace) ? "7" : "6") . ". Questions for AI Assistant\n" .
-                                "1. **Root Cause**: Why did this exception occur on the `" . ($error->screen ?: 'global') . "` screen?" . ($httpCode ? " What does HTTP Response Code " . $httpCode . " indicate in video streaming / CDN (e.g. Cloudflare / ExoPlayer rate limiting or blocked IP)?" : "") . "\n" .
-                                "2. **Client-Side Resilience**: What error recovery, retry strategy, or player fallback logic should be implemented in the mobile app (`app/(tabs)/player.tsx` or Video Player component) so playback recovers gracefully without interrupting the user experience?\n" .
-                                "3. **Backend / CDN Fix**: What server-side headers, Cloudflare rules, CORS configuration, or CDN token parameters should be updated to resolve this issue?\n";
-
-                            $errorJsonData = [
-                                'id' => $error->id,
-                                'severity' => strtoupper($error->severity),
-                                'screen' => $error->screen ?: 'global',
-                                'error_type' => $error->error_type,
-                                'error_message' => $error->error_message,
-                                'device_id' => $devId,
-                                'username' => $devUser,
-                                'platform' => $platform,
-                                'os' => $os,
-                                'app_version' => $appVer,
-                                'country' => $country,
-                                'country_flag' => $countryFlag,
-                                'ip' => $ip,
-                                'time' => $timeStr,
-                                'resolved' => (bool)$error->resolved,
-                                'stack_trace' => $error->stack_trace,
-                                'metadata' => $metaObj ?: $error->metadata,
-                                'prompt' => $promptText,
-                                'resolve_url' => route('admin.errors.resolve', $error->id),
-                            ];
-                        @endphp
-                        <tr class="hover:bg-white/[0.02] transition-colors" id="error-row-{{ $error->id }}">
-                            <!-- Severity & Screen -->
-                            <td class="py-4 align-top">
-                                <div class="flex flex-col gap-1.5 items-start">
-                                    @if($error->severity === 'fatal')
-                                        <span class="px-2 py-0.5 rounded text-[10px] font-extrabold bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center gap-1">
-                                            <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
-                                            FATAL CRASH
-                                        </span>
-                                    @elseif($error->severity === 'error')
-                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                                            ERROR
-                                        </span>
-                                    @else
-                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">
-                                            WARNING
-                                        </span>
-                                    @endif
-
-                                    <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-white/5 text-slate-300 border border-white/10">
-                                        📺 {{ $error->screen ?: 'global' }}
-                                    </span>
-                                </div>
-                            </td>
-
-                            <!-- Error Message & Diagnostics -->
-                            <td class="py-4 align-top max-w-md">
-                                <div class="font-bold text-white break-words text-sm">{{ $error->error_message }}</div>
-                                
-                                <div class="flex items-center gap-2 mt-2 flex-wrap">
-                                    @if($error->stack_trace)
-                                        <span class="px-2 py-0.5 rounded text-[9px] font-semibold bg-sky-500/15 text-sky-300 border border-sky-500/20">
-                                            Stack Trace Available
-                                        </span>
-                                    @endif
-                                    @if($error->metadata)
-                                        <span class="px-2 py-0.5 rounded text-[9px] font-semibold bg-purple-500/15 text-purple-300 border border-purple-500/20">
-                                            Metadata Attached
-                                        </span>
-                                    @endif
-                                    <span class="text-[10px] text-slate-500 font-mono">
-                                        Type: {{ $error->error_type }}
-                                    </span>
-                                </div>
-                            </td>
-
-                            <!-- Device & User -->
-                            <td class="py-4 align-top">
-                                @if($dev)
-                                    <a href="{{ route('admin.devices.show', $dev->device_id) }}" class="inline-flex items-center gap-2 group">
-                                        <div class="w-7 h-7 rounded-xl bg-gradient-to-tr from-slate-800 to-slate-700 flex items-center justify-center text-white font-bold text-xs border border-white/5">
-                                            {{ strtoupper(substr($dev->display_name, 0, 1)) }}
-                                        </div>
-                                        <div>
-                                            <div class="font-bold text-white group-hover:text-rose-400 transition-colors">{{ $dev->display_name }}</div>
-                                            <div class="text-[10px] text-slate-400 mt-0.5">
-                                                <span>{{ $countryFlag }} {{ $country }}</span> • <span class="uppercase text-slate-300">{{ $platform }}</span>
-                                            </div>
-                                            <div class="text-[9px] text-slate-500 font-mono mt-0.5">v{{ $appVer }} • {{ $dev->device_id }}</div>
-                                        </div>
-                                    </a>
-                                @else
-                                    <div>
-                                        <span class="font-mono text-slate-300 text-xs">{{ $devId }}</span>
-                                        <div class="text-[10px] text-slate-500 uppercase mt-0.5">{{ $platform }} • v{{ $appVer }}</div>
-                                    </div>
-                                @endif
-                            </td>
-
-                            <!-- Status -->
-                            <td class="py-4 align-top">
-                                @if($error->resolved)
-                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                                        Resolved
-                                    </span>
-                                @else
-                                    <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">
-                                        <span class="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse"></span>
-                                        Open
-                                    </span>
-                                @endif
-                            </td>
-
-                            <!-- Reported At -->
-                            <td class="py-4 align-top font-mono text-[11px] text-slate-400">
-                                <div>{{ $error->created_at ? $error->created_at->diffForHumans() : 'Just now' }}</div>
-                                <div class="text-[9px] text-slate-500">{{ $timeStr }}</div>
-                            </td>
-
-                            <!-- Actions -->
-                            <td class="py-4 align-top text-right space-x-1.5 whitespace-nowrap">
-                                <!-- Inspect Button (Native Vanilla JS) -->
-                                <button type="button" 
-                                        onclick="openInspectModal({{ json_encode($errorJsonData) }})"
-                                        class="px-2.5 py-1 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 text-[11px] font-bold transition-all inline-flex items-center gap-1">
-                                    <svg class="w-3 h-3 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                                    Inspect
-                                </button>
-
-                                <!-- 1-Click Copy AI Prompt (with instant checkmark feedback) -->
-                                <button type="button" 
-                                        onclick="copyRowPrompt(this, {{ json_encode($promptText) }})"
-                                        title="Copy formatted prompt for AI assistant (Claude/GPT/Gemini)"
-                                        class="p-1.5 rounded-lg bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 transition-all inline-flex items-center">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
-                                </button>
-
-                                <!-- Resolve Toggle -->
-                                <form action="{{ route('admin.errors.resolve', $error->id) }}" method="POST" class="inline">
-                                    @csrf
-                                    @if($error->resolved)
-                                        <button type="submit" class="px-2 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white text-[11px] font-semibold border border-white/10 transition-colors">
-                                            Reopen
-                                        </button>
-                                    @else
-                                        <button type="submit" class="px-2 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30 text-[11px] font-bold transition-colors">
-                                            Resolve
-                                        </button>
-                                    @endif
-                                </form>
-
-                                <!-- Delete -->
-                                <form action="{{ route('admin.errors.delete', $error->id) }}" method="POST" class="inline" onsubmit="return confirm('Delete this error log record permanently?')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-white/5 transition-colors" title="Delete Log">
-                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="6" class="py-16 text-center text-slate-400">
-                                <svg class="w-10 h-10 text-emerald-400 mx-auto mb-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                                <div class="text-white font-bold text-base">No Error Telemetry Found</div>
-                                <div class="text-xs text-slate-400 mt-1">Client applications are running cleanly without any reported runtime faults.</div>
-                            </td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
+    <!-- MODULE QUICK-TABS & VIEW SWITCHER BAR -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-2 rounded-2xl bg-white/[0.02] border border-white/5">
+        <!-- Quick Module Filter Tabs -->
+        <div class="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none text-xs">
+            <a href="{{ route('admin.errors.index', array_merge(request()->except('module'), ['view' => $viewMode])) }}" 
+               class="px-3 py-1.5 rounded-xl font-bold transition-all whitespace-nowrap {{ !request('module') ? 'bg-white/15 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">
+                All Modules ({{ $stats['total'] }})
+            </a>
+            @foreach($modulesDef as $mk => $m)
+                @php
+                    $mTotal = $moduleStats[$mk]['total'] ?? 0;
+                    $isCur = request('module') === $mk;
+                @endphp
+                <a href="{{ route('admin.errors.index', array_merge(request()->query(), ['module' => $mk, 'view' => $viewMode])) }}" 
+                   class="px-3 py-1.5 rounded-xl font-bold transition-all flex items-center gap-1.5 whitespace-nowrap {{ $isCur ? 'bg-rose-500 text-white shadow-md shadow-rose-500/20' : 'text-slate-400 hover:text-white hover:bg-white/5' }}">
+                    <span>{{ $m['icon'] }}</span>
+                    <span>{{ $m['short_name'] }}</span>
+                    <span class="px-1.5 py-0.2 rounded-full text-[10px] {{ $isCur ? 'bg-white/20 text-white' : 'bg-white/5 text-slate-400' }} font-mono">{{ $mTotal }}</span>
+                </a>
+            @endforeach
         </div>
 
-        @if($errors->hasPages())
-            <div class="pt-4 border-t border-white/5">
-                {{ $errors->links() }}
-            </div>
-        @endif
+        <!-- View Switcher (Grouped by Module vs Flat Stream) -->
+        <div class="flex items-center gap-1 bg-[#12131A] p-1 rounded-xl border border-white/10 shrink-0 self-start sm:self-auto">
+            <a href="{{ route('admin.errors.index', array_merge(request()->query(), ['view' => 'grouped'])) }}" 
+               class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 {{ $viewMode === 'grouped' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-400 hover:text-white' }}">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                Group by Module
+            </a>
+            <a href="{{ route('admin.errors.index', array_merge(request()->query(), ['view' => 'flat'])) }}" 
+               class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 {{ $viewMode === 'flat' ? 'bg-rose-500 text-white shadow-sm' : 'text-slate-400 hover:text-white' }}">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                Flat Stream
+            </a>
+        </div>
     </div>
+
+    <!-- MAIN ERROR PRESENTATION: GROUPED BY MODULE vs FLAT STREAM -->
+    @if($viewMode === 'grouped')
+        <!-- GROUPED BY MODULE VIEW -->
+        <div class="space-y-6">
+            @php
+                // Modules to display: if activeModule is set, only show that one; else show all modules in definition
+                $modulesToRender = request('module') 
+                    ? [request('module') => $modulesDef[request('module')] ?? $modulesDef['core']]
+                    : $modulesDef;
+            @endphp
+
+            @foreach($modulesToRender as $modKey => $modInfo)
+                @php
+                    $modErrors = $groupedErrors->get($modKey, collect());
+                    $mStats = $moduleStats[$modKey] ?? ['total' => 0, 'unresolved' => 0, 'fatal' => 0, 'status_color' => 'emerald', 'status_label' => 'Healthy'];
+                @endphp
+
+                <div class="glass-panel p-6 rounded-3xl space-y-4 border {{ $modErrors->isNotEmpty() ? 'border-white/10' : 'border-white/5 opacity-70' }}" id="module-section-{{ $modKey }}">
+                    <!-- Module Section Header -->
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-white/5 pb-4">
+                        <div class="flex items-center gap-3">
+                            <span class="text-3xl p-2.5 rounded-2xl bg-white/5 border border-white/10">{{ $modInfo['icon'] }}</span>
+                            <div>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h3 class="text-lg font-black text-white tracking-tight">{{ $modInfo['name'] }}</h3>
+                                    <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold {{ $modInfo['badge_bg'] }} {{ $modInfo['badge_text'] }} border {{ $modInfo['badge_border'] }}">
+                                        {{ $mStats['total'] }} {{ Str::plural('issue', $mStats['total']) }}
+                                    </span>
+                                    @if($mStats['unresolved'] > 0)
+                                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                            {{ $mStats['unresolved'] }} Open
+                                        </span>
+                                    @endif
+                                    @if($mStats['fatal'] > 0)
+                                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                            🔥 {{ $mStats['fatal'] }} Fatal
+                                        </span>
+                                    @endif
+                                </div>
+                                <p class="text-xs text-slate-400 mt-1">{{ $modInfo['description'] }}</p>
+                            </div>
+                        </div>
+
+                        <!-- Module Actions -->
+                        <div class="flex items-center gap-2 self-start sm:self-auto">
+                            @if($mStats['unresolved'] > 0)
+                                <form action="{{ route('admin.errors.resolveModule', $modKey) }}" method="POST" onsubmit="return confirm('Mark all {{ $mStats['unresolved'] }} open issues in {{ $modInfo['name'] }} as resolved?')">
+                                    @csrf
+                                    <button type="submit" class="px-3 py-1.5 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 text-xs font-bold border border-emerald-500/30 transition-colors flex items-center gap-1">
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                        Resolve {{ $mStats['unresolved'] }} in Module
+                                    </button>
+                                </form>
+                            @endif
+
+                            <a href="{{ route('admin.errors.export', array_merge(request()->query(), ['module' => $modKey, 'format' => 'markdown'])) }}" 
+                               class="px-2.5 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold border border-white/10 transition-colors flex items-center gap-1"
+                               title="Export {{ $modInfo['name'] }} debug report">
+                                <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                                Export
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Module Table -->
+                    @if($modErrors->isEmpty())
+                        <div class="py-8 text-center text-slate-400 text-xs">
+                            <div class="inline-flex items-center justify-center w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-400 mb-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            </div>
+                            <div class="font-bold text-slate-300">Module Running Cleanly</div>
+                            <div class="text-[11px] text-slate-500 mt-0.5">No matching error records logged for {{ $modInfo['name'] }}.</div>
+                        </div>
+                    @else
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs">
+                                <thead>
+                                    <tr class="border-b border-white/10 text-slate-400 uppercase tracking-wider text-[11px]">
+                                        <th class="pb-3 font-semibold">Severity & Screen</th>
+                                        <th class="pb-3 font-semibold">Error Message & Diagnostics</th>
+                                        <th class="pb-3 font-semibold">Device & Environment</th>
+                                        <th class="pb-3 font-semibold">Status</th>
+                                        <th class="pb-3 font-semibold">Reported At</th>
+                                        <th class="pb-3 font-semibold text-right">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-white/5">
+                                    @foreach($modErrors as $error)
+                                        @include('admin.partials.error_row', ['error' => $error, 'modulesDef' => $modulesDef])
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    @endif
+                </div>
+            @endforeach
+        </div>
+    @else
+        <!-- FLAT STREAM VIEW -->
+        <div class="glass-panel p-6 rounded-3xl space-y-4">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-xs">
+                    <thead>
+                        <tr class="border-b border-white/10 text-slate-400 uppercase tracking-wider text-[11px]">
+                            <th class="pb-3.5 font-semibold">Severity & Module</th>
+                            <th class="pb-3.5 font-semibold">Error Message & Diagnostics</th>
+                            <th class="pb-3.5 font-semibold">Device & Environment</th>
+                            <th class="pb-3.5 font-semibold">Status</th>
+                            <th class="pb-3.5 font-semibold">Reported At</th>
+                            <th class="pb-3.5 font-semibold text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/5">
+                        @forelse($errors as $error)
+                            @include('admin.partials.error_row', ['error' => $error, 'modulesDef' => $modulesDef])
+                        @empty
+                            <tr>
+                                <td colspan="6" class="py-16 text-center text-slate-400">
+                                    <svg class="w-10 h-10 text-emerald-400 mx-auto mb-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    <div class="text-white font-bold text-base">No Error Telemetry Found</div>
+                                    <div class="text-xs text-slate-400 mt-1">Client applications are running cleanly without any reported runtime faults.</div>
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            @if($errors->hasPages())
+                <div class="pt-4 border-t border-white/5">
+                    {{ $errors->links() }}
+                </div>
+            @endif
+        </div>
+    @endif
 </div>
 
 <!-- SINGLE UNIVERSAL INSPECT ERROR MODAL (Native Vanilla JS) -->
@@ -440,6 +456,7 @@
             <div>
                 <div class="flex items-center gap-2 flex-wrap">
                     <span id="modalSeverityBadge" class="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase"></span>
+                    <span id="modalModuleBadge" class="px-2.5 py-0.5 rounded-full text-[10px] font-bold"></span>
                     <span id="modalScreenBadge" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-white/10 text-slate-300"></span>
                     <span id="modalIssueId" class="text-xs text-slate-400 font-mono"></span>
                 </div>
@@ -495,7 +512,7 @@
             <pre id="modalMetadata" class="p-4 rounded-2xl bg-[#0B0C10] border border-white/10 text-amber-300 font-mono text-[11px] overflow-x-auto max-h-36 whitespace-pre-wrap"></pre>
         </div>
 
-        <!-- Generated AI Debug Prompt Box (Instant Visual Copy & Preview) -->
+        <!-- Generated AI Debug Prompt Box -->
         <div class="space-y-2 pt-2 border-t border-white/10">
             <div class="flex items-center justify-between">
                 <div class="text-xs font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
@@ -549,7 +566,8 @@
                     @csrf
                     <button type="submit" id="modalResolveBtn" class="px-4 py-2.5 rounded-xl text-white text-xs font-bold transition-all shadow-md"></button>
                 </form>
-                <button type="button" onclick="closeInspectModal()" class="px-4 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-slate-300 text-xs font-semibold">
+
+                <button type="button" onclick="closeInspectModal()" class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all">
                     Close
                 </button>
             </div>
@@ -558,288 +576,191 @@
 </div>
 
 <script>
-let currentInspectData = null;
+    let currentModalErrorData = null;
 
-function openInspectModal(data) {
-    currentInspectData = data;
-    const modal = document.getElementById('universalInspectModal');
-    if (!modal) return;
+    function showToast(message) {
+        const toast = document.getElementById('globalToast');
+        const msgSpan = document.getElementById('globalToastMessage');
+        if (!toast || !msgSpan) return;
 
-    // Severity badge styling
-    const sevBadge = document.getElementById('modalSeverityBadge');
-    if (sevBadge) {
-        sevBadge.textContent = data.severity;
-        if (data.severity === 'FATAL') {
-            sevBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/40';
-        } else if (data.severity === 'ERROR') {
-            sevBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40';
-        } else {
-            sevBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/40';
-        }
-    }
-
-    document.getElementById('modalScreenBadge').textContent = 'Screen: ' + data.screen;
-    document.getElementById('modalIssueId').textContent = 'Issue #' + data.id + ' (' + data.error_type + ')';
-    document.getElementById('modalErrorMessage').textContent = data.error_message;
-
-    document.getElementById('modalUser').textContent = data.username;
-    document.getElementById('modalDeviceId').textContent = data.device_id;
-    document.getElementById('modalPlatform').textContent = data.platform;
-    document.getElementById('modalOs').textContent = data.os;
-    document.getElementById('modalAppVersion').textContent = 'v' + data.app_version;
-    document.getElementById('modalIp').textContent = data.ip;
-    document.getElementById('modalLocation').textContent = (data.country_flag || '🌐') + ' ' + data.country;
-    document.getElementById('modalTime').textContent = data.time;
-
-    // Stack Trace
-    const traceSection = document.getElementById('modalStackTraceSection');
-    const traceElem = document.getElementById('modalStackTrace');
-    if (data.stack_trace && data.stack_trace.trim().length > 0) {
-        traceSection.classList.remove('hidden');
-        traceElem.textContent = data.stack_trace;
-        document.getElementById('modalCopyTraceBtn').onclick = function() {
-            copyTextToClipboard(data.stack_trace, function() {
-                showToast('Stack trace copied to clipboard!');
-                const txt = document.getElementById('modalCopyTraceBtnText');
-                if (txt) {
-                    txt.textContent = '✓ Copied!';
-                    setTimeout(() => txt.textContent = 'Copy Trace', 2000);
-                }
-            });
-        };
-    } else {
-        traceSection.classList.add('hidden');
-    }
-
-    // Metadata
-    const metaSection = document.getElementById('modalMetadataSection');
-    const metaElem = document.getElementById('modalMetadata');
-    if (data.metadata) {
-        metaSection.classList.remove('hidden');
-        metaElem.textContent = typeof data.metadata === 'object' ? JSON.stringify(data.metadata, null, 2) : data.metadata;
-    } else {
-        metaSection.classList.add('hidden');
-    }
-
-    // AI Prompt Preview Textarea
-    const promptTextarea = document.getElementById('modalPromptTextarea');
-    if (promptTextarea) {
-        promptTextarea.value = data.prompt || '';
-    }
-
-    // Resolve Form Button
-    const resolveForm = document.getElementById('modalResolveForm');
-    const resolveBtn = document.getElementById('modalResolveBtn');
-    resolveForm.action = data.resolve_url;
-    if (data.resolved) {
-        resolveBtn.textContent = 'Reopen Issue';
-        resolveBtn.className = 'px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white text-xs font-bold transition-all';
-    } else {
-        resolveBtn.textContent = 'Mark as Resolved';
-        resolveBtn.className = 'px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-md';
-    }
-
-    modal.classList.remove('hidden');
-    document.body.style.overflow = 'hidden';
-}
-
-function closeInspectModal() {
-    const modal = document.getElementById('universalInspectModal');
-    if (modal) {
-        modal.classList.add('hidden');
-    }
-    document.body.style.overflow = 'auto';
-}
-
-function toggleExportDropdown() {
-    const menu = document.getElementById('exportDropdownMenu');
-    if (menu) {
-        menu.classList.toggle('hidden');
-    }
-}
-
-// Copy the full AI Debug Prompt from the modal with multi-element visual feedback
-function copyModalPrompt() {
-    if (!currentInspectData || !currentInspectData.prompt) {
-        showToast('No prompt data available');
-        return;
-    }
-
-    const promptText = currentInspectData.prompt;
-    
-    // Select the visible textarea for visual confirmation
-    const promptTextarea = document.getElementById('modalPromptTextarea');
-    if (promptTextarea) {
-        promptTextarea.focus();
-        promptTextarea.select();
-    }
-
-    copyTextToClipboard(promptText, function() {
-        showToast('✓ AI Debug Prompt copied to clipboard!');
-
-        // Update footer button
-        const mainBtnText = document.getElementById('modalCopyPromptBtnText');
-        const mainBtn = document.getElementById('modalCopyPromptBtn');
-        if (mainBtnText && mainBtn) {
-            mainBtnText.textContent = '✓ Copied to Clipboard!';
-            mainBtn.classList.add('ring-2', 'ring-emerald-400');
-            setTimeout(function() {
-                mainBtnText.textContent = 'Copy Debug Prompt for AI';
-                mainBtn.classList.remove('ring-2', 'ring-emerald-400');
-            }, 2500);
-        }
-
-        // Update top-right quick copy button
-        const quickText = document.getElementById('modalPromptQuickCopyText');
-        if (quickText) {
-            quickText.textContent = '✓ Copied!';
-            setTimeout(function() {
-                quickText.textContent = 'Copy Prompt';
-            }, 2500);
-        }
-    }, function(err) {
-        showToast('Press Cmd+C / Ctrl+C to copy selected text');
-    });
-}
-
-// Copy raw error message
-function copyRawErrorMessage() {
-    if (!currentInspectData) return;
-    const msg = currentInspectData.error_message || '';
-    copyTextToClipboard(msg, function() {
-        showToast('✓ Error message copied to clipboard!');
-        const btnText = document.getElementById('modalCopyRawMsgBtnText');
-        if (btnText) {
-            btnText.textContent = '✓ Copied!';
-            setTimeout(() => btnText.textContent = 'Copy Raw Error', 2000);
-        }
-    });
-}
-
-// Copy prompt from table row with icon animation
-function copyRowPrompt(btn, promptText) {
-    const originalHtml = btn.innerHTML;
-    copyTextToClipboard(promptText, function() {
-        showToast('✓ AI debug prompt copied to clipboard!');
-        btn.innerHTML = `<svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>`;
-        btn.classList.add('bg-emerald-500/20', 'border-emerald-500/40');
-        setTimeout(function() {
-            btn.innerHTML = originalHtml;
-            btn.classList.remove('bg-emerald-500/20', 'border-emerald-500/40');
-        }, 2500);
-    }, function() {
-        showToast('Press Cmd+C / Ctrl+C to copy');
-    });
-}
-
-// Bulletproof multi-strategy clipboard copier
-function copyTextToClipboard(text, onSuccess, onError) {
-    if (!text) {
-        if (onError) onError('No text provided');
-        return;
-    }
-
-    // Strategy 1: Async Clipboard API (Modern Secure Contexts)
-    if (navigator.clipboard && window.isSecureContext && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(text).then(function() {
-            if (onSuccess) onSuccess();
-        }).catch(function() {
-            fallbackExecCopy(text, onSuccess, onError);
-        });
-        return;
-    }
-
-    // Strategy 2: execCommand fallback (Non-HTTPS / Legacy / Sandboxed)
-    fallbackExecCopy(text, onSuccess, onError);
-}
-
-function fallbackExecCopy(text, onSuccess, onError) {
-    // If modal prompt textarea is available and matching, copy directly from it
-    const promptTextarea = document.getElementById('modalPromptTextarea');
-    if (promptTextarea && promptTextarea.value === text) {
-        promptTextarea.focus();
-        promptTextarea.select();
-        promptTextarea.setSelectionRange(0, 999999);
-        try {
-            const ok = document.execCommand('copy');
-            if (ok) {
-                if (onSuccess) onSuccess();
-                return;
-            }
-        } catch (e) {}
-    }
-
-    // Fallback: Create unconstrained temporary textarea in DOM
-    const el = document.createElement('textarea');
-    el.value = text;
-    el.style.position = 'fixed';
-    el.style.top = '10px';
-    el.style.left = '10px';
-    el.style.width = '100px';
-    el.style.height = '100px';
-    el.style.padding = '0';
-    el.style.border = 'none';
-    el.style.outline = 'none';
-    el.style.boxShadow = 'none';
-    el.style.background = 'transparent';
-    el.style.opacity = '0.01';
-    el.style.zIndex = '99999';
-    document.body.appendChild(el);
-    el.focus();
-    el.select();
-    el.setSelectionRange(0, 999999);
-
-    let success = false;
-    try {
-        success = document.execCommand('copy');
-    } catch (err) {
-        success = false;
-    }
-    document.body.removeChild(el);
-
-    if (success) {
-        if (onSuccess) onSuccess();
-    } else {
-        if (onError) onError('Browser prevented automated copy');
-    }
-}
-
-function showToast(msg) {
-    const toast = document.getElementById('globalToast');
-    const toastMsg = document.getElementById('globalToastMessage');
-    if (toast && toastMsg) {
-        toastMsg.textContent = msg;
+        msgSpan.innerText = message;
         toast.classList.remove('hidden');
-        setTimeout(function() {
+        toast.classList.add('flex');
+
+        setTimeout(() => {
             toast.classList.add('hidden');
+            toast.classList.remove('flex');
         }, 3000);
     }
-}
 
-// Close modal when clicking backdrop
-document.addEventListener('click', function(e) {
-    const modal = document.getElementById('universalInspectModal');
-    if (modal && !modal.classList.contains('hidden') && e.target === modal) {
-        closeInspectModal();
+    function toggleExportDropdown() {
+        const menu = document.getElementById('exportDropdownMenu');
+        if (menu) menu.classList.toggle('hidden');
     }
 
-    // Close export dropdown when clicking outside
-    const exportBtn = document.getElementById('exportDropdownBtn');
-    const exportMenu = document.getElementById('exportDropdownMenu');
-    if (exportMenu && !exportMenu.classList.contains('hidden')) {
-        if (exportBtn && !exportBtn.contains(e.target) && !exportMenu.contains(e.target)) {
-            exportMenu.classList.add('hidden');
+    document.addEventListener('click', function(e) {
+        const btn = document.getElementById('exportDropdownBtn');
+        const menu = document.getElementById('exportDropdownMenu');
+        if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
+            menu.classList.add('hidden');
         }
-    }
-});
+    });
 
-// Close modal on Escape key
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        closeInspectModal();
-        const exportMenu = document.getElementById('exportDropdownMenu');
-        if (exportMenu) exportMenu.classList.add('hidden');
+    function openInspectModal(data) {
+        currentModalErrorData = data;
+        const modal = document.getElementById('universalInspectModal');
+        if (!modal) return;
+
+        // Set badges
+        const sevBadge = document.getElementById('modalSeverityBadge');
+        if (sevBadge) {
+            sevBadge.innerText = data.severity;
+            if (data.severity === 'FATAL') {
+                sevBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500/20 text-rose-400 border border-rose-500/30';
+            } else if (data.severity === 'ERROR') {
+                sevBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30';
+            } else {
+                sevBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-yellow-500/20 text-yellow-300 border border-yellow-500/30';
+            }
+        }
+
+        // Set module badge
+        const modBadge = document.getElementById('modalModuleBadge');
+        if (modBadge) {
+            modBadge.innerText = (data.module_icon || '📦') + ' ' + (data.module_name || data.module || 'Core');
+            modBadge.className = 'px-2.5 py-0.5 rounded-full text-[10px] font-bold ' + (data.module_bg || 'bg-white/10') + ' ' + (data.module_text || 'text-slate-300') + ' border ' + (data.module_border || 'border-white/10');
+        }
+
+        const screenBadge = document.getElementById('modalScreenBadge');
+        if (screenBadge) screenBadge.innerText = '📺 ' + (data.screen || 'global');
+
+        const issueId = document.getElementById('modalIssueId');
+        if (issueId) issueId.innerText = '#' + data.id + ' • ' + data.error_type;
+
+        const errorMsg = document.getElementById('modalErrorMessage');
+        if (errorMsg) errorMsg.innerText = data.error_message;
+
+        // Device card
+        document.getElementById('modalUser').innerText = data.username || 'Anonymous Device';
+        document.getElementById('modalDeviceId').innerText = data.device_id;
+        document.getElementById('modalPlatform').innerText = data.platform;
+        document.getElementById('modalOs').innerText = data.os;
+        document.getElementById('modalAppVersion').innerText = 'v' + data.app_version;
+        document.getElementById('modalIp').innerText = data.ip;
+        document.getElementById('modalLocation').innerText = (data.country_flag || '🌐') + ' ' + (data.country || 'Global');
+        document.getElementById('modalTime').innerText = data.time;
+
+        // Stack Trace
+        const traceSection = document.getElementById('modalStackTraceSection');
+        const tracePre = document.getElementById('modalStackTrace');
+        if (data.stack_trace && data.stack_trace.trim().length > 0) {
+            tracePre.innerText = data.stack_trace;
+            traceSection.classList.remove('hidden');
+        } else {
+            traceSection.classList.add('hidden');
+        }
+
+        // Metadata
+        const metaSection = document.getElementById('modalMetadataSection');
+        const metaPre = document.getElementById('modalMetadata');
+        if (data.metadata && Object.keys(data.metadata).length > 0) {
+            metaPre.innerText = typeof data.metadata === 'object' ? JSON.stringify(data.metadata, null, 2) : String(data.metadata);
+            metaSection.classList.remove('hidden');
+        } else {
+            metaSection.classList.add('hidden');
+        }
+
+        // AI Debug Prompt
+        const promptArea = document.getElementById('modalPromptTextarea');
+        if (promptArea) {
+            promptArea.value = data.prompt;
+        }
+
+        // Copy trace button handler
+        const copyTraceBtn = document.getElementById('modalCopyTraceBtn');
+        if (copyTraceBtn) {
+            copyTraceBtn.onclick = function() {
+                if (data.stack_trace) {
+                    navigator.clipboard.writeText(data.stack_trace);
+                    document.getElementById('modalCopyTraceBtnText').innerText = 'Copied!';
+                    showToast('Stack trace copied to clipboard');
+                    setTimeout(() => {
+                        const t = document.getElementById('modalCopyTraceBtnText');
+                        if (t) t.innerText = 'Copy Trace';
+                    }, 2000);
+                }
+            };
+        }
+
+        // Resolve Form
+        const resolveForm = document.getElementById('modalResolveForm');
+        const resolveBtn = document.getElementById('modalResolveBtn');
+        if (resolveForm && resolveBtn) {
+            resolveForm.action = data.resolve_url;
+            if (data.resolved) {
+                resolveBtn.innerText = 'Reopen Issue';
+                resolveBtn.className = 'px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-md shadow-amber-500/25';
+            } else {
+                resolveBtn.innerText = 'Mark as Resolved';
+                resolveBtn.className = 'px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold transition-all shadow-md shadow-emerald-500/25';
+            }
+        }
+
+        modal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
     }
-});
+
+    function closeInspectModal() {
+        const modal = document.getElementById('universalInspectModal');
+        if (modal) modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    }
+
+    function copyModalPrompt() {
+        if (!currentModalErrorData || !currentModalErrorData.prompt) return;
+        navigator.clipboard.writeText(currentModalErrorData.prompt).then(() => {
+            const btnText = document.getElementById('modalCopyPromptBtnText');
+            const quickText = document.getElementById('modalPromptQuickCopyText');
+            if (btnText) btnText.innerText = 'Prompt Copied to Clipboard! ✓';
+            if (quickText) quickText.innerText = 'Copied! ✓';
+            showToast('AI Debug Prompt copied to clipboard! Ready to paste into Claude/ChatGPT');
+
+            setTimeout(() => {
+                if (btnText) btnText.innerText = 'Copy Debug Prompt for AI';
+                if (quickText) quickText.innerText = 'Copy Prompt';
+            }, 2500);
+        });
+    }
+
+    function copyRawErrorMessage() {
+        if (!currentModalErrorData || !currentModalErrorData.error_message) return;
+        navigator.clipboard.writeText(currentModalErrorData.error_message).then(() => {
+            const btnText = document.getElementById('modalCopyRawMsgBtnText');
+            if (btnText) btnText.innerText = 'Error Copied! ✓';
+            showToast('Raw error message copied to clipboard');
+
+            setTimeout(() => {
+                if (btnText) btnText.innerText = 'Copy Raw Error';
+            }, 2000);
+        });
+    }
+
+    function copyTableRowPrompt(btn, promptText) {
+        navigator.clipboard.writeText(promptText).then(() => {
+            const label = btn.querySelector('.copy-label');
+            const orig = label ? label.innerText : 'Copy AI Prompt';
+            if (label) label.innerText = 'Copied! ✓';
+            showToast('Debug Prompt copied! Paste directly into AI for immediate resolution');
+
+            setTimeout(() => {
+                if (label) label.innerText = orig;
+            }, 2000);
+        });
+    }
+
+    // Close modal on Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeInspectModal();
+    });
 </script>
 @endsection
