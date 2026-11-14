@@ -191,6 +191,9 @@ class ConfigController extends Controller
                     "plan_name" => $activeSub ? $activeSub->package_id : null,
                 ],
             ],
-        ]);
+        ])
+            ->header('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache')
+            ->header('Expires', '0');
     }
 }
