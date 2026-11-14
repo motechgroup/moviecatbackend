@@ -1658,6 +1658,7 @@ class DashboardController extends Controller
     public function settings(): View
     {
         $settings = [
+            'app_color_theme' => (string)AppSetting::get('app_color_theme', 'default'),
             'announcement_active' => (bool)AppSetting::get('announcement_active', true),
             'announcement_text' => AppSetting::get('announcement_text', 'MovieCat v1.0 is live! Seamless streaming & bulk downloads enabled.'),
             'min_app_version' => AppSetting::get('min_app_version', '1.0.0'),
@@ -1712,6 +1713,13 @@ class DashboardController extends Controller
             'announcement_text' => 'nullable|string',
             'min_app_version' => 'nullable|string',
         ]);
+
+                if ($request->filled('app_color_theme')) {
+            $theme = (string)$request->input('app_color_theme');
+            if (in_array($theme, ['default', 'emerald_tangerine', 'ink_navy_coral'], true)) {
+                AppSetting::set('app_color_theme', $theme, 'appearance');
+            }
+        }
 
         AppSetting::set('announcement_active', (bool)$request->has('announcement_active'), 'general');
         AppSetting::set('force_update', (bool)$request->has('force_update'), 'general');

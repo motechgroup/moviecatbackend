@@ -15,6 +15,86 @@
     <form action="{{ route('admin.settings.update') }}" method="POST" class="space-y-6">
         @csrf
         
+                <!-- Remote App Color Theme (Admin Activated) -->
+        <div class="glass-panel p-6 sm:p-7 rounded-3xl space-y-5 border border-indigo-500/20 bg-indigo-500/[0.02]">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                    <h2 class="text-base font-bold text-white flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
+                        Mobile App Color Theme & Appearance (Admin Controlled)
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">Select the active theme broadcasted to all mobile app installations. Only administrators can switch themes.</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
+                        Current: {{ $settings['app_color_theme'] ?? 'default' }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+                <!-- Theme 1: Default (MovieCat Classic Red) -->
+                <label class="relative block cursor-pointer p-4 rounded-2xl border transition-all {{ ($settings['app_color_theme'] ?? 'default') === 'default' ? 'bg-[#151119] border-[#FF4B55] shadow-lg shadow-[#FF4B55]/20 ring-1 ring-[#FF4B55]' : 'bg-white/[0.02] border-white/10 hover:border-white/20' }}">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <input type="radio" name="app_color_theme" value="default" {{ ($settings['app_color_theme'] ?? 'default') === 'default' ? 'checked' : '' }} class="w-4 h-4 accent-[#FF4B55]">
+                            <span class="text-sm font-bold text-white">Classic Red</span>
+                        </div>
+                        @if(($settings['app_color_theme'] ?? 'default') === 'default')
+                            <span class="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-[#FF4B55]/20 text-[#FF4B55] border border-[#FF4B55]/30">Active</span>
+                        @endif
+                    </div>
+                    <p class="text-[11px] text-slate-400 mb-3">Dark obsidian base with neon crimson accents & amber details.</p>
+                    <div class="flex items-center gap-2 pt-2 border-t border-white/5">
+                        <span class="w-6 h-6 rounded-full bg-[#0B080E] border border-white/20 shadow-inner" title="Background #0B080E"></span>
+                        <span class="w-6 h-6 rounded-full bg-[#151119] border border-white/20" title="Card #151119"></span>
+                        <span class="w-6 h-6 rounded-full bg-[#FF4B55] shadow-sm shadow-[#FF4B55]/50" title="Primary #FF4B55"></span>
+                        <span class="w-6 h-6 rounded-full bg-[#FFFFFF] border border-white/30" title="Text #FFFFFF"></span>
+                    </div>
+                </label>
+
+                <!-- Theme 2: Emerald & Tangerine -->
+                <label class="relative block cursor-pointer p-4 rounded-2xl border transition-all {{ ($settings['app_color_theme'] ?? '') === 'emerald_tangerine' ? 'bg-[#0f5c45]/20 border-[#f28c28] shadow-lg shadow-[#f28c28]/20 ring-1 ring-[#f28c28]' : 'bg-white/[0.02] border-white/10 hover:border-white/20' }}">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <input type="radio" name="app_color_theme" value="emerald_tangerine" {{ ($settings['app_color_theme'] ?? '') === 'emerald_tangerine' ? 'checked' : '' }} class="w-4 h-4 accent-[#f28c28]">
+                            <span class="text-sm font-bold text-white">Emerald & Tangerine</span>
+                        </div>
+                        @if(($settings['app_color_theme'] ?? '') === 'emerald_tangerine')
+                            <span class="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-[#f28c28]/20 text-[#f28c28] border border-[#f28c28]/30">Active</span>
+                        @endif
+                    </div>
+                    <p class="text-[11px] text-slate-400 mb-3">Lush emerald #0f5c45 background with white pearl & tangerine #f28c28 accents.</p>
+                    <div class="flex items-center gap-2 pt-2 border-t border-white/5">
+                        <span class="w-6 h-6 rounded-full bg-[#07241a] border border-white/20 shadow-inner" title="Background #07241a"></span>
+                        <span class="w-6 h-6 rounded-full bg-[#0f5c45] border border-emerald-400/40" title="Emerald #0f5c45"></span>
+                        <span class="w-6 h-6 rounded-full bg-[#f28c28] shadow-sm shadow-[#f28c28]/50" title="Tangerine #f28c28"></span>
+                        <span class="w-6 h-6 rounded-full bg-[#FFFFFF] border border-white/30" title="White #FFFFFF"></span>
+                    </div>
+                </label>
+
+                <!-- Theme 3: Ink Navy & Electric Coral -->
+                <label class="relative block cursor-pointer p-4 rounded-2xl border transition-all {{ ($settings['app_color_theme'] ?? '') === 'ink_navy_coral' ? 'bg-[#141b2d]/40 border-[#ff5a4e] shadow-lg shadow-[#ff5a4e]/20 ring-1 ring-[#ff5a4e]' : 'bg-white/[0.02] border-white/10 hover:border-white/20' }}">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <input type="radio" name="app_color_theme" value="ink_navy_coral" {{ ($settings['app_color_theme'] ?? '') === 'ink_navy_coral' ? 'checked' : '' }} class="w-4 h-4 accent-[#ff5a4e]">
+                            <span class="text-sm font-bold text-white">Ink Navy & Coral</span>
+                        </div>
+                        @if(($settings['app_color_theme'] ?? '') === 'ink_navy_coral')
+                            <span class="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-[#ff5a4e]/20 text-[#ff5a4e] border border-[#ff5a4e]/30">Active</span>
+                        @endif
+                    </div>
+                    <p class="text-[11px] text-slate-400 mb-3">Ink Navy #141b2d midnight surface with white pearl #f4f1ea and electric coral #ff5a4e.</p>
+                    <div class="flex items-center gap-2 pt-2 border-t border-white/5">
+                        <span class="w-6 h-6 rounded-full bg-[#0c111d] border border-white/20 shadow-inner" title="Background #0c111d"></span>
+                        <span class="w-6 h-6 rounded-full bg-[#141b2d] border border-indigo-400/30" title="Ink Navy #141b2d"></span>
+                        <span class="w-6 h-6 rounded-full bg-[#ff5a4e] shadow-sm shadow-[#ff5a4e]/50" title="Electric Coral #ff5a4e"></span>
+                        <span class="w-6 h-6 rounded-full bg-[#f4f1ea] border border-white/30" title="White Pearl #f4f1ea"></span>
+                    </div>
+                </label>
+            </div>
+        </div>
+
         <!-- Announcement Banner -->
         <div class="glass-panel p-6 sm:p-7 rounded-3xl space-y-4">
             <h2 class="text-base font-bold text-white flex items-center gap-2">

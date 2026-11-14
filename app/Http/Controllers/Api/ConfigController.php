@@ -144,6 +144,40 @@ class ConfigController extends Controller
                 "similarSeries" => AppSetting::get("feature_similar_series", true),
                 "cloudSync" => AppSetting::get("feature_cloud_sync", true),
             ],
+                        "theme" => (function() {
+                $active = (string)AppSetting::get("app_color_theme", "default");
+                if (!in_array($active, ["default", "emerald_tangerine", "ink_navy_coral"], true)) {
+                    $active = "default";
+                }
+                return [
+                    "active" => $active,
+                    "name" => match($active) {
+                        "emerald_tangerine" => "Emerald & Tangerine",
+                        "ink_navy_coral" => "Ink Navy & Electric Coral",
+                        default => "MovieCat Classic Red",
+                    },
+                    "palette" => match($active) {
+                        "emerald_tangerine" => [
+                            "background" => "#07241a",
+                            "backgroundCard" => "#0f5c45",
+                            "brand" => "#f28c28",
+                            "text" => "#ffffff",
+                        ],
+                        "ink_navy_coral" => [
+                            "background" => "#0c111d",
+                            "backgroundCard" => "#141b2d",
+                            "brand" => "#ff5a4e",
+                            "text" => "#f4f1ea",
+                        ],
+                        default => [
+                            "background" => "#0B080E",
+                            "backgroundCard" => "#151119",
+                            "brand" => "#FF4B55",
+                            "text" => "#FFFFFF",
+                        ],
+                    },
+                ];
+            })(),
             "subscription" => [
                 "enabled" => (bool)AppSetting::get("vault_subscription_enabled", false),
                 "package_name" => $packageName,
