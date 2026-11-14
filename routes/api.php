@@ -68,6 +68,6 @@ Route::prefix('v1')->middleware('throttle:60,1')->group(function () {
     Route::get('/subscription/status', [SubscriptionController::class, 'status']);
     Route::post('/subscription/pay', [SubscriptionController::class, 'pay'])->middleware('throttle:20,1');
     Route::get('/subscription/query', [SubscriptionController::class, 'query'])->middleware('throttle:60,1');
-    Route::post('/subscription/webhook/{gateway}', [SubscriptionController::class, 'webhook']);
-    Route::post('/webhooks/mpesa', fn(\Illuminate\Http\Request $r) => app(SubscriptionController::class)->webhook($r, 'mpesa'));
+    Route::post('/subscription/webhook/{gateway}', [SubscriptionController::class, 'webhook'])->middleware('throttle:60,1');
+    Route::post('/webhooks/mpesa', fn(\Illuminate\Http\Request $r) => app(SubscriptionController::class)->webhook($r, 'mpesa'))->middleware('throttle:60,1');
 });

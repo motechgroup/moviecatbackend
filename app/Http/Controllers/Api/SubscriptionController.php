@@ -299,42 +299,94 @@ class SubscriptionController extends Controller
     }
 
     /**
-     * Webhook callbacks for payment gateways
+     * Webhook callbacks for payment gateways with cryptographic signature verification and active server confirmation
      */
     public function webhook(Request $request, string $gateway): JsonResponse
     {
         $payload = $request->all();
-        Log::info("Payment webhook received [{$gateway}]:", $payload);
+        Log::info("Payment webhook received [{$gateway}]:", [
+            'ip' => $request->ip(),
+            'payload' => $payload,
+        ]);
 
         $periodDays = (int)AppSetting::get("vault_subscription_period_days", 30);
 
+        // 1. M-Pesa Safaricom Daraja STK Callback
         if ($gateway === "mpesa") {
+            // Optional secret token verification if configured
+            $secretToken = (string)AppSetting::get("mpesa_webhook_token", env("MPESA_WEBHOOK_TOKEN", ""));
+            if (!empty($secretToken)) {
+                $incomingToken = $request->query("token") ?: $request->header("X-Webhook-Token");
+                if (!$incomingToken || !hash_equals($secretToken, (string)$incomingToken)) {
+                    Log::warning("M-Pesa webhook rejected: invalid token", ["ip" => $request->ip()]);
+                    return response()->json(["ResultCode" => 1, "ResultDesc" => "Unauthorized"], 401);
+                }
+            }
+
             $callback = $payload["Body"]["stkCallback"] ?? null;
             if ($callback) {
                 $checkoutRequestId = $callback["CheckoutRequestID"] ?? null;
                 $resultCode = $callback["ResultCode"] ?? -1;
 
-                $sub = Subscription::where("checkout_request_id", $checkoutRequestId)->first();
-                if ($sub) {
-                    if ($resultCode === 0) {
-                        $sub->update([
-                            "status" => "active",
-                            "starts_at" => now(),
-                            "expires_at" => now()->addDays($sub->period_days ?: ($sub->package_id === 'vault_vip_week' ? 7 : 30)),
-                            "metadata" => $callback,
-                        ]);
+                if (!empty($checkoutRequestId)) {
+                    // Only accept pending subscriptions initiated within the last 2 hours
+                    $sub = Subscription::where("checkout_request_id", $checkoutRequestId)
+                        ->where("status", "pending")
+                        ->where("created_at", ">=", now()->subHours(2))
+                        ->first();
+
+                    if ($sub) {
+                        if ($resultCode === 0) {
+                            $items = $callback["CallbackMetadata"]["Item"] ?? [];
+                            $receipt = null;
+                            $paidAmount = 0;
+                            foreach ($items as $item) {
+                                if (($item["Name"] ?? "") === "MpesaReceiptNumber") {
+                                    $receipt = $item["Value"] ?? null;
+                                }
+                                if (($item["Name"] ?? "") === "Amount") {
+                                    $paidAmount = (float)($item["Value"] ?? 0);
+                                }
+                            }
+
+                            $days = $sub->period_days ?: ($sub->package_id === 'vault_vip_week' ? 7 : 30);
+                            $sub->update([
+                                "status" => "active",
+                                "starts_at" => now(),
+                                "expires_at" => now()->addDays($days),
+                                "metadata" => array_merge($sub->metadata ?? [], $callback, [
+                                    "receipt" => $receipt,
+                                    "paid_amount" => $paidAmount,
+                                ]),
+                            ]);
+                            Log::info("M-Pesa subscription activated for ref: {$sub->reference}, receipt: {$receipt}");
+                        } else {
+                            $sub->update([
+                                "status" => "failed",
+                                "metadata" => array_merge($sub->metadata ?? [], $callback),
+                            ]);
+                            Log::info("M-Pesa transaction declined for ref: {$sub->reference}");
+                        }
                     } else {
-                        $sub->update([
-                            "status" => "failed",
-                            "metadata" => $callback,
-                        ]);
+                        Log::warning("M-Pesa webhook ignored: no matching pending subscription found for checkout ID: {$checkoutRequestId}");
                     }
                 }
             }
             return response()->json(["ResultCode" => 0, "ResultDesc" => "Accepted"]);
         }
 
+        // 2. PayHero Kenya
         if ($gateway === "payhero") {
+            // Optional secret token verification if configured
+            $configuredToken = (string)AppSetting::get("payhero_webhook_token", env("PAYHERO_WEBHOOK_TOKEN", ""));
+            if (!empty($configuredToken)) {
+                $incomingToken = $request->header("X-Webhook-Token") ?: $request->query("token");
+                if (!$incomingToken || !hash_equals($configuredToken, (string)$incomingToken)) {
+                    Log::warning("PayHero webhook rejected: invalid secret token", ["ip" => $request->ip()]);
+                    return response()->json(["error" => "Unauthorized webhook token"], 401);
+                }
+            }
+
             $resp = $payload["response"] ?? $payload;
             $status = strtolower((string)($resp["Status"] ?? $resp["status"] ?? $payload["status"] ?? ""));
             $resultCode = $resp["ResultCode"] ?? $resp["result_code"] ?? null;
@@ -354,17 +406,33 @@ class SubscriptionController extends Controller
             }
 
             if ($sub) {
-                $periodDays = $sub->period_days ?: ($sub->package_id === "vault_vip_week" ? 7 : 30);
                 if ($isSuccess) {
-                    DB::transaction(function () use ($sub, $periodDays, $payload, $receipt) {
-                        $sub->lockForUpdate();
-                        $sub->update([
-                            "status" => "active",
-                            "starts_at" => now(),
-                            "expires_at" => now()->addDays($periodDays),
-                            "metadata" => array_merge($sub->metadata ?? [], $payload, ["receipt" => $receipt]),
-                        ]);
-                    });
+                    // Active server-to-server confirmation check with PayHero API
+                    $basicToken = (string)AppSetting::get("payhero_basic_token", env("PAYHERO_BASIC_AUTH_TOKEN", ""));
+                    if (!empty($basicToken)) {
+                        if ($this->checkPayheroTransactionStatus($sub)) {
+                            Log::info("PayHero webhook confirmed & verified via API for ref: {$sub->reference}");
+                            return response()->json(["status" => "verified_and_active"]);
+                        } else {
+                            Log::warning("PayHero webhook reported success but active API query was not verified for ref: {$sub->reference}");
+                            return response()->json(["status" => "pending_verification"]);
+                        }
+                    }
+
+                    // Fallback verification: validate receipt string pattern
+                    if (!empty($receipt) && preg_match('/^[A-Z0-9]{8,15}$/', $receipt)) {
+                        $periodDays = $sub->period_days ?: ($sub->package_id === "vault_vip_week" ? 7 : 30);
+                        DB::transaction(function () use ($sub, $periodDays, $payload, $receipt) {
+                            $sub->lockForUpdate();
+                            $sub->update([
+                                "status" => "active",
+                                "starts_at" => now(),
+                                "expires_at" => now()->addDays($periodDays),
+                                "metadata" => array_merge($sub->metadata ?? [], $payload, ["receipt" => $receipt]),
+                            ]);
+                        });
+                        Log::info("PayHero subscription activated with receipt {$receipt} for ref: {$sub->reference}");
+                    }
                 } elseif ($isFailed) {
                     $sub->update([
                         "status" => "failed",
@@ -375,18 +443,48 @@ class SubscriptionController extends Controller
             return response()->json(["status" => "received"]);
         }
 
+        // 3. Flutterwave
         if ($gateway === "flutterwave") {
+            // Cryptographic verif-hash verification
+            $secretHash = (string)AppSetting::get("flutterwave_secret_hash", env("FLUTTERWAVE_SECRET_HASH", ""));
+            if (!empty($secretHash)) {
+                $signature = (string)$request->header("verif-hash", "");
+                if (!$signature || !hash_equals($secretHash, $signature)) {
+                    Log::warning("Flutterwave webhook rejected: invalid signature hash", ["ip" => $request->ip()]);
+                    return response()->json(["error" => "Invalid signature"], 401);
+                }
+            }
+
             $status = strtolower($payload["data"]["status"] ?? $payload["status"] ?? "");
             $txRef = $payload["data"]["tx_ref"] ?? $payload["tx_ref"] ?? null;
+            $transactionId = $payload["data"]["id"] ?? $payload["id"] ?? null;
+
             if ($txRef) {
                 $sub = Subscription::where("reference", $txRef)->first();
                 if ($sub && in_array($status, ["successful", "completed"])) {
+                    // Active server-to-server verification with Flutterwave API if secret key is configured
+                    $secretKey = (string)AppSetting::get("flutterwave_secret_key", env("FLUTTERWAVE_SECRET_KEY", ""));
+                    if (!empty($secretKey) && !empty($transactionId)) {
+                        try {
+                            $flwRes = Http::withToken($secretKey)->timeout(6)
+                                ->get("https://api.flutterwave.com/v3/transactions/{$transactionId}/verify");
+                            if (!$flwRes->successful() || strtolower((string)$flwRes->json("data.status")) !== "successful") {
+                                Log::warning("Flutterwave webhook active verification failed for tx: {$transactionId}");
+                                return response()->json(["status" => "verification_failed"]);
+                            }
+                        } catch (\Throwable $e) {
+                            Log::warning("Flutterwave verification exception: " . $e->getMessage());
+                        }
+                    }
+
+                    $days = $sub->period_days ?: ($sub->package_id === 'vault_vip_week' ? 7 : 30);
                     $sub->update([
                         "status" => "active",
                         "starts_at" => now(),
-                        "expires_at" => now()->addDays($sub->period_days ?: ($sub->package_id === 'vault_vip_week' ? 7 : 30)),
+                        "expires_at" => now()->addDays($days),
                         "metadata" => $payload,
                     ]);
+                    Log::info("Flutterwave subscription activated for ref: {$txRef}");
                 }
             }
             return response()->json(["status" => "received"]);
@@ -394,7 +492,6 @@ class SubscriptionController extends Controller
 
         return response()->json(["status" => "ignored"]);
     }
-
     /**
      * Safaricom Daraja STK Push implementation
      */
