@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 class AppSetting extends Model
@@ -21,11 +22,30 @@ class AppSetting extends Model
         ];
     }
 
+    private static ?array $memoryCache = null;
+
+    public static function getAllCached(): array
+    {
+        if (self::$memoryCache !== null) {
+            return self::$memoryCache;
+        }
+
+        try {
+            self::$memoryCache = Cache::remember('app_settings_all_dict', 600, function () {
+                return static::all()->pluck('value', 'key')->toArray();
+            });
+        } catch (Throwable) {
+            self::$memoryCache = [];
+        }
+
+        return self::$memoryCache ?: [];
+    }
+
     public static function get(string $key, mixed $default = null): mixed
     {
         try {
-            $setting = static::where('key', $key)->first();
-            return $setting ? $setting->value : $default;
+            $all = self::getAllCached();
+            return array_key_exists($key, $all) ? $all[$key] : $default;
         } catch (Throwable) {
             return $default;
         }
@@ -34,7 +54,10 @@ class AppSetting extends Model
     public static function set(string $key, mixed $value, string $group = 'general', ?string $desc = null): ?static
     {
         try {
-            return static::updateOrCreate(
+            self::$memoryCache = null;
+            Cache::forget('app_settings_all_dict');
+
+            $setting = static::updateOrCreate(
                 ['key' => $key],
                 [
                     'value' => $value,
@@ -42,6 +65,11 @@ class AppSetting extends Model
                     'description' => $desc,
                 ]
             );
+
+            self::$memoryCache = null;
+            Cache::forget('app_settings_all_dict');
+
+            return $setting;
         } catch (Throwable) {
             return null;
         }
