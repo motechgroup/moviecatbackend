@@ -44,7 +44,7 @@
                             <span class="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-[#FF4B55]/20 text-[#FF4B55] border border-[#FF4B55]/30">Active</span>
                         @endif
                     </div>
-                    <p class="text-[11px] text-slate-400 mb-3">Dark obsidian base with neon crimson accents & amber details.</p>
+                    <p class="text-[11px] text-slate-400 mb-2">Dark obsidian base with neon crimson accents & amber details.</p><div class="text-[10px] text-emerald-400/90 font-semibold mb-3 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Dynamic Splash: Classic Cinema Red</div>
                     <div class="flex items-center gap-2 pt-2 border-t border-white/5">
                         <span class="w-6 h-6 rounded-full bg-[#0B080E] border border-white/20 shadow-inner" title="Background #0B080E"></span>
                         <span class="w-6 h-6 rounded-full bg-[#151119] border border-white/20" title="Card #151119"></span>
@@ -64,7 +64,7 @@
                             <span class="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-[#f28c28]/20 text-[#f28c28] border border-[#f28c28]/30">Active</span>
                         @endif
                     </div>
-                    <p class="text-[11px] text-slate-400 mb-3">Lush emerald #0f5c45 background with white pearl & tangerine #f28c28 accents.</p>
+                    <p class="text-[11px] text-slate-400 mb-2">Lush emerald #0f5c45 background with white pearl & tangerine #f28c28 accents.</p><div class="text-[10px] text-emerald-400/90 font-semibold mb-3 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Dynamic Splash: Emerald Cinema Glow</div>
                     <div class="flex items-center gap-2 pt-2 border-t border-white/5">
                         <span class="w-6 h-6 rounded-full bg-[#07241a] border border-white/20 shadow-inner" title="Background #07241a"></span>
                         <span class="w-6 h-6 rounded-full bg-[#0f5c45] border border-emerald-400/40" title="Emerald #0f5c45"></span>
@@ -84,7 +84,7 @@
                             <span class="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-[#ff5a4e]/20 text-[#ff5a4e] border border-[#ff5a4e]/30">Active</span>
                         @endif
                     </div>
-                    <p class="text-[11px] text-slate-400 mb-3">Ink Navy #141b2d midnight surface with white pearl #f4f1ea and electric coral #ff5a4e.</p>
+                    <p class="text-[11px] text-slate-400 mb-2">Ink Navy #141b2d midnight surface with white pearl #f4f1ea and electric coral #ff5a4e.</p><div class="text-[10px] text-emerald-400/90 font-semibold mb-3 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Dynamic Splash: Ink Navy & Coral</div>
                     <div class="flex items-center gap-2 pt-2 border-t border-white/5">
                         <span class="w-6 h-6 rounded-full bg-[#0c111d] border border-white/20 shadow-inner" title="Background #0c111d"></span>
                         <span class="w-6 h-6 rounded-full bg-[#141b2d] border border-indigo-400/30" title="Ink Navy #141b2d"></span>
