@@ -65,6 +65,24 @@
                             </div>
                         </div>
 
+                        <!-- Theme Brand Logo Preview -->
+                        <div class="flex items-center justify-between p-2 rounded-lg bg-black/40 border border-white/5 mb-3">
+                            <span class="text-[9px] uppercase tracking-wider text-slate-400 font-bold">App & Player Logo:</span>
+                            <img src="{{ asset('images/themes/logo_red.png') }}" alt="Red Logo" class="h-5 max-w-[95px] object-contain">
+                        </div>
+
+                        <!-- Theme Brand Logo Preview -->
+                        <div class="flex items-center justify-between p-2 rounded-lg bg-black/40 border border-white/5 mb-3">
+                            <span class="text-[9px] uppercase tracking-wider text-slate-400 font-bold">App & Player Logo:</span>
+                            <img src="{{ asset('images/themes/logo_emerald.png') }}" alt="Emerald Logo" class="h-5 max-w-[95px] object-contain">
+                        </div>
+
+                        <!-- Theme Brand Logo Preview -->
+                        <div class="flex items-center justify-between p-2 rounded-lg bg-black/40 border border-white/5 mb-3">
+                            <span class="text-[9px] uppercase tracking-wider text-slate-400 font-bold">App & Player Logo:</span>
+                            <img src="{{ asset('images/themes/logo_coral.png') }}" alt="Coral Logo" class="h-5 max-w-[95px] object-contain">
+                        </div>
+
                         <!-- Exact Color Palette Swatches -->
                         <div class="space-y-1.5 pt-2 border-t border-white/10 text-[10px]">
                             <div class="flex items-center justify-between text-slate-300">
