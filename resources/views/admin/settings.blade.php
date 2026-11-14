@@ -15,81 +15,219 @@
     <form action="{{ route('admin.settings.update') }}" method="POST" class="space-y-6">
         @csrf
         
-                <!-- Remote App Color Theme (Admin Activated) -->
-        <div class="glass-panel p-6 sm:p-7 rounded-3xl space-y-5 border border-indigo-500/20 bg-indigo-500/[0.02]">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <!-- Remote App Color Theme & Dynamic Splash (Admin Activated) -->
+        <div class="glass-panel p-6 sm:p-8 rounded-3xl space-y-6 border border-indigo-500/30 bg-gradient-to-b from-indigo-950/20 via-[#0E0C15]/40 to-transparent">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-white/5">
                 <div>
-                    <h2 class="text-base font-bold text-white flex items-center gap-2">
-                        <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
-                        Mobile App Color Theme & Appearance (Admin Controlled)
+                    <h2 class="text-lg font-black text-white flex items-center gap-2.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-gradient-to-r from-emerald-400 via-amber-400 to-rose-400 animate-pulse"></span>
+                        Mobile App Theme & Splash Screen Selector
                     </h2>
-                    <p class="text-xs text-slate-400 mt-1">Select the active theme broadcasted to all mobile app installations. Only administrators can switch themes.</p>
+                    <p class="text-xs text-slate-400 mt-1">Select the active theme broadcasted to all mobile apps. The client app UI and splash screen will instantly switch to match your choice.</p>
                 </div>
                 <div class="flex items-center gap-2">
-                    <span class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase">
-                        Current: {{ $settings['app_color_theme'] ?? 'default' }}
+                    <span class="text-[11px] font-black px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 uppercase tracking-wider">
+                        Active Now: {{ $settings['app_color_theme'] ?? 'default' }}
                     </span>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-1">
                 <!-- Theme 1: Default (MovieCat Classic Red) -->
-                <label class="relative block cursor-pointer p-4 rounded-2xl border transition-all {{ ($settings['app_color_theme'] ?? 'default') === 'default' ? 'bg-[#151119] border-[#FF4B55] shadow-lg shadow-[#FF4B55]/20 ring-1 ring-[#FF4B55]' : 'bg-white/[0.02] border-white/10 hover:border-white/20' }}">
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="flex items-center gap-2">
-                            <input type="radio" name="app_color_theme" value="default" {{ ($settings['app_color_theme'] ?? 'default') === 'default' ? 'checked' : '' }} class="w-4 h-4 accent-[#FF4B55]">
-                            <span class="text-sm font-bold text-white">Classic Red</span>
+                @php $isDefault = ($settings['app_color_theme'] ?? 'default') === 'default'; @endphp
+                <label class="group relative flex flex-col justify-between cursor-pointer p-5 rounded-2xl border transition-all duration-300 {{ $isDefault ? 'bg-[#151119] border-[#FF4B55] shadow-2xl shadow-[#FF4B55]/25 ring-2 ring-[#FF4B55]' : 'bg-white/[0.02] border-white/10 hover:border-white/25 hover:bg-white/[0.04]' }}">
+                    <div>
+                        <!-- Header & Radio -->
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-2.5">
+                                <input type="radio" name="app_color_theme" value="default" {{ $isDefault ? 'checked' : '' }} class="w-4 h-4 accent-[#FF4B55]">
+                                <div>
+                                    <span class="text-sm font-black text-white block">Classic Red</span>
+                                    <span class="text-[10px] text-slate-400">MovieCat Obsidian & Crimson</span>
+                                </div>
+                            </div>
+                            @if($isDefault)
+                                <span class="text-[9px] font-black uppercase px-2.5 py-1 rounded-full bg-[#FF4B55]/20 text-[#FF4B55] border border-[#FF4B55]/40 flex items-center gap-1 shadow-sm shadow-[#FF4B55]/30">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-[#FF4B55] animate-ping"></span>
+                                    Active Live
+                                </span>
+                            @endif
                         </div>
-                        @if(($settings['app_color_theme'] ?? 'default') === 'default')
-                            <span class="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-[#FF4B55]/20 text-[#FF4B55] border border-[#FF4B55]/30">Active</span>
-                        @endif
-                    </div>
-                    <p class="text-[11px] text-slate-400 mb-2">Dark obsidian base with neon crimson accents & amber details.</p><div class="text-[10px] text-emerald-400/90 font-semibold mb-3 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Dynamic Splash: Classic Cinema Red</div>
-                    <div class="flex items-center gap-2 pt-2 border-t border-white/5">
-                        <span class="w-6 h-6 rounded-full bg-[#0B080E] border border-white/20 shadow-inner" title="Background #0B080E"></span>
-                        <span class="w-6 h-6 rounded-full bg-[#151119] border border-white/20" title="Card #151119"></span>
-                        <span class="w-6 h-6 rounded-full bg-[#FF4B55] shadow-sm shadow-[#FF4B55]/50" title="Primary #FF4B55"></span>
-                        <span class="w-6 h-6 rounded-full bg-[#FFFFFF] border border-white/30" title="Text #FFFFFF"></span>
+
+                        <!-- Phone Frame with Splash Screen Image Preview -->
+                        <div class="relative w-full aspect-[9/16] max-h-72 rounded-xl overflow-hidden border border-white/10 bg-black/60 shadow-inner group-hover:border-white/30 transition-all mb-4">
+                            <img src="{{ asset('images/themes/splash_classic_red.png') }}" alt="Classic Red Splash" class="w-full h-full object-cover">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-3">
+                                <div class="text-[10px] font-bold text-white flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-[#FF4B55]"></span>
+                                    Classic Cinema Red Splash
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Exact Color Palette Swatches -->
+                        <div class="space-y-1.5 pt-2 border-t border-white/10 text-[10px]">
+                            <div class="flex items-center justify-between text-slate-300">
+                                <span class="flex items-center gap-2">
+                                    <span class="w-3.5 h-3.5 rounded-full bg-[#FF4B55] border border-white/20 shadow-sm"></span>
+                                    Primary Accent:
+                                </span>
+                                <span class="font-mono text-slate-400 font-semibold">#FF4B55 (Crimson)</span>
+                            </div>
+                            <div class="flex items-center justify-between text-slate-300">
+                                <span class="flex items-center gap-2">
+                                    <span class="w-3.5 h-3.5 rounded-full bg-[#0B080E] border border-white/20"></span>
+                                    Background:
+                                </span>
+                                <span class="font-mono text-slate-400 font-semibold">#0B080E (Obsidian)</span>
+                            </div>
+                            <div class="flex items-center justify-between text-slate-300">
+                                <span class="flex items-center gap-2">
+                                    <span class="w-3.5 h-3.5 rounded-full bg-[#151119] border border-white/20"></span>
+                                    Card Surface:
+                                </span>
+                                <span class="font-mono text-slate-400 font-semibold">#151119 (Dark)</span>
+                            </div>
+                            <div class="flex items-center justify-between text-slate-300">
+                                <span class="flex items-center gap-2">
+                                    <span class="w-3.5 h-3.5 rounded-full bg-[#FFFFFF] border border-white/20"></span>
+                                    Text Color:
+                                </span>
+                                <span class="font-mono text-slate-400 font-semibold">#FFFFFF (White)</span>
+                            </div>
+                        </div>
                     </div>
                 </label>
 
                 <!-- Theme 2: Emerald & Tangerine -->
-                <label class="relative block cursor-pointer p-4 rounded-2xl border transition-all {{ ($settings['app_color_theme'] ?? '') === 'emerald_tangerine' ? 'bg-[#0f5c45]/20 border-[#f28c28] shadow-lg shadow-[#f28c28]/20 ring-1 ring-[#f28c28]' : 'bg-white/[0.02] border-white/10 hover:border-white/20' }}">
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="flex items-center gap-2">
-                            <input type="radio" name="app_color_theme" value="emerald_tangerine" {{ ($settings['app_color_theme'] ?? '') === 'emerald_tangerine' ? 'checked' : '' }} class="w-4 h-4 accent-[#f28c28]">
-                            <span class="text-sm font-bold text-white">Emerald & Tangerine</span>
+                @php $isEmerald = ($settings['app_color_theme'] ?? '') === 'emerald_tangerine'; @endphp
+                <label class="group relative flex flex-col justify-between cursor-pointer p-5 rounded-2xl border transition-all duration-300 {{ $isEmerald ? 'bg-[#0f5c45]/20 border-[#f28c28] shadow-2xl shadow-[#f28c28]/25 ring-2 ring-[#f28c28]' : 'bg-white/[0.02] border-white/10 hover:border-white/25 hover:bg-white/[0.04]' }}">
+                    <div>
+                        <!-- Header & Radio -->
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-2.5">
+                                <input type="radio" name="app_color_theme" value="emerald_tangerine" {{ $isEmerald ? 'checked' : '' }} class="w-4 h-4 accent-[#f28c28]">
+                                <div>
+                                    <span class="text-sm font-black text-white block">Emerald & Tangerine</span>
+                                    <span class="text-[10px] text-slate-400">Emerald #0f5c45 & Tangerine #f28c28</span>
+                                </div>
+                            </div>
+                            @if($isEmerald)
+                                <span class="text-[9px] font-black uppercase px-2.5 py-1 rounded-full bg-[#f28c28]/20 text-[#f28c28] border border-[#f28c28]/40 flex items-center gap-1 shadow-sm shadow-[#f28c28]/30">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-[#f28c28] animate-ping"></span>
+                                    Active Live
+                                </span>
+                            @endif
                         </div>
-                        @if(($settings['app_color_theme'] ?? '') === 'emerald_tangerine')
-                            <span class="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-[#f28c28]/20 text-[#f28c28] border border-[#f28c28]/30">Active</span>
-                        @endif
-                    </div>
-                    <p class="text-[11px] text-slate-400 mb-2">Lush emerald #0f5c45 background with white pearl & tangerine #f28c28 accents.</p><div class="text-[10px] text-emerald-400/90 font-semibold mb-3 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Dynamic Splash: Emerald Cinema Glow</div>
-                    <div class="flex items-center gap-2 pt-2 border-t border-white/5">
-                        <span class="w-6 h-6 rounded-full bg-[#07241a] border border-white/20 shadow-inner" title="Background #07241a"></span>
-                        <span class="w-6 h-6 rounded-full bg-[#0f5c45] border border-emerald-400/40" title="Emerald #0f5c45"></span>
-                        <span class="w-6 h-6 rounded-full bg-[#f28c28] shadow-sm shadow-[#f28c28]/50" title="Tangerine #f28c28"></span>
-                        <span class="w-6 h-6 rounded-full bg-[#FFFFFF] border border-white/30" title="White #FFFFFF"></span>
+
+                        <!-- Phone Frame with Splash Screen Image Preview -->
+                        <div class="relative w-full aspect-[9/16] max-h-72 rounded-xl overflow-hidden border border-white/10 bg-black/60 shadow-inner group-hover:border-white/30 transition-all mb-4">
+                            <img src="{{ asset('images/themes/splash_emerald.png') }}" alt="Emerald & Tangerine Splash" class="w-full h-full object-cover">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-3">
+                                <div class="text-[10px] font-bold text-white flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-[#f28c28]"></span>
+                                    Emerald Cinema Glow Splash
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Exact Color Palette Swatches -->
+                        <div class="space-y-1.5 pt-2 border-t border-white/10 text-[10px]">
+                            <div class="flex items-center justify-between text-slate-300">
+                                <span class="flex items-center gap-2">
+                                    <span class="w-3.5 h-3.5 rounded-full bg-[#f28c28] border border-white/20 shadow-sm"></span>
+                                    Primary Accent:
+                                </span>
+                                <span class="font-mono text-slate-400 font-semibold">#f28c28 (Tangerine)</span>
+                            </div>
+                            <div class="flex items-center justify-between text-slate-300">
+                                <span class="flex items-center gap-2">
+                                    <span class="w-3.5 h-3.5 rounded-full bg-[#07241a] border border-white/20"></span>
+                                    Background:
+                                </span>
+                                <span class="font-mono text-slate-400 font-semibold">#07241a (Deep Emerald)</span>
+                            </div>
+                            <div class="flex items-center justify-between text-slate-300">
+                                <span class="flex items-center gap-2">
+                                    <span class="w-3.5 h-3.5 rounded-full bg-[#0f5c45] border border-emerald-400/50"></span>
+                                    Card Surface:
+                                </span>
+                                <span class="font-mono text-slate-400 font-semibold">#0f5c45 (Emerald)</span>
+                            </div>
+                            <div class="flex items-center justify-between text-slate-300">
+                                <span class="flex items-center gap-2">
+                                    <span class="w-3.5 h-3.5 rounded-full bg-[#FFFFFF] border border-white/20"></span>
+                                    Text Color:
+                                </span>
+                                <span class="font-mono text-slate-400 font-semibold">#FFFFFF (White)</span>
+                            </div>
+                        </div>
                     </div>
                 </label>
 
                 <!-- Theme 3: Ink Navy & Electric Coral -->
-                <label class="relative block cursor-pointer p-4 rounded-2xl border transition-all {{ ($settings['app_color_theme'] ?? '') === 'ink_navy_coral' ? 'bg-[#141b2d]/40 border-[#ff5a4e] shadow-lg shadow-[#ff5a4e]/20 ring-1 ring-[#ff5a4e]' : 'bg-white/[0.02] border-white/10 hover:border-white/20' }}">
-                    <div class="flex items-center justify-between mb-3">
-                        <div class="flex items-center gap-2">
-                            <input type="radio" name="app_color_theme" value="ink_navy_coral" {{ ($settings['app_color_theme'] ?? '') === 'ink_navy_coral' ? 'checked' : '' }} class="w-4 h-4 accent-[#ff5a4e]">
-                            <span class="text-sm font-bold text-white">Ink Navy & Coral</span>
+                @php $isNavy = ($settings['app_color_theme'] ?? '') === 'ink_navy_coral'; @endphp
+                <label class="group relative flex flex-col justify-between cursor-pointer p-5 rounded-2xl border transition-all duration-300 {{ $isNavy ? 'bg-[#141b2d]/40 border-[#ff5a4e] shadow-2xl shadow-[#ff5a4e]/25 ring-2 ring-[#ff5a4e]' : 'bg-white/[0.02] border-white/10 hover:border-white/25 hover:bg-white/[0.04]' }}">
+                    <div>
+                        <!-- Header & Radio -->
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center gap-2.5">
+                                <input type="radio" name="app_color_theme" value="ink_navy_coral" {{ $isNavy ? 'checked' : '' }} class="w-4 h-4 accent-[#ff5a4e]">
+                                <div>
+                                    <span class="text-sm font-black text-white block">Ink Navy & Coral</span>
+                                    <span class="text-[10px] text-slate-400">Navy #141b2d & Coral #ff5a4e</span>
+                                </div>
+                            </div>
+                            @if($isNavy)
+                                <span class="text-[9px] font-black uppercase px-2.5 py-1 rounded-full bg-[#ff5a4e]/20 text-[#ff5a4e] border border-[#ff5a4e]/40 flex items-center gap-1 shadow-sm shadow-[#ff5a4e]/30">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-[#ff5a4e] animate-ping"></span>
+                                    Active Live
+                                </span>
+                            @endif
                         </div>
-                        @if(($settings['app_color_theme'] ?? '') === 'ink_navy_coral')
-                            <span class="text-[9px] font-bold uppercase px-2 py-0.5 rounded-full bg-[#ff5a4e]/20 text-[#ff5a4e] border border-[#ff5a4e]/30">Active</span>
-                        @endif
-                    </div>
-                    <p class="text-[11px] text-slate-400 mb-2">Ink Navy #141b2d midnight surface with white pearl #f4f1ea and electric coral #ff5a4e.</p><div class="text-[10px] text-emerald-400/90 font-semibold mb-3 flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Dynamic Splash: Ink Navy & Coral</div>
-                    <div class="flex items-center gap-2 pt-2 border-t border-white/5">
-                        <span class="w-6 h-6 rounded-full bg-[#0c111d] border border-white/20 shadow-inner" title="Background #0c111d"></span>
-                        <span class="w-6 h-6 rounded-full bg-[#141b2d] border border-indigo-400/30" title="Ink Navy #141b2d"></span>
-                        <span class="w-6 h-6 rounded-full bg-[#ff5a4e] shadow-sm shadow-[#ff5a4e]/50" title="Electric Coral #ff5a4e"></span>
-                        <span class="w-6 h-6 rounded-full bg-[#f4f1ea] border border-white/30" title="White Pearl #f4f1ea"></span>
+
+                        <!-- Phone Frame with Splash Screen Image Preview -->
+                        <div class="relative w-full aspect-[9/16] max-h-72 rounded-xl overflow-hidden border border-white/10 bg-black/60 shadow-inner group-hover:border-white/30 transition-all mb-4">
+                            <img src="{{ asset('images/themes/splash_ink_navy.png') }}" alt="Ink Navy & Coral Splash" class="w-full h-full object-cover">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-3">
+                                <div class="text-[10px] font-bold text-white flex items-center gap-1.5">
+                                    <span class="w-2 h-2 rounded-full bg-[#ff5a4e]"></span>
+                                    Ink Navy & Electric Coral Splash
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Exact Color Palette Swatches -->
+                        <div class="space-y-1.5 pt-2 border-t border-white/10 text-[10px]">
+                            <div class="flex items-center justify-between text-slate-300">
+                                <span class="flex items-center gap-2">
+                                    <span class="w-3.5 h-3.5 rounded-full bg-[#ff5a4e] border border-white/20 shadow-sm"></span>
+                                    Primary Accent:
+                                </span>
+                                <span class="font-mono text-slate-400 font-semibold">#ff5a4e (Electric Coral)</span>
+                            </div>
+                            <div class="flex items-center justify-between text-slate-300">
+                                <span class="flex items-center gap-2">
+                                    <span class="w-3.5 h-3.5 rounded-full bg-[#0c111d] border border-white/20"></span>
+                                    Background:
+                                </span>
+                                <span class="font-mono text-slate-400 font-semibold">#0c111d (Midnight Ink)</span>
+                            </div>
+                            <div class="flex items-center justify-between text-slate-300">
+                                <span class="flex items-center gap-2">
+                                    <span class="w-3.5 h-3.5 rounded-full bg-[#141b2d] border border-indigo-400/40"></span>
+                                    Card Surface:
+                                </span>
+                                <span class="font-mono text-slate-400 font-semibold">#141b2d (Ink Navy)</span>
+                            </div>
+                            <div class="flex items-center justify-between text-slate-300">
+                                <span class="flex items-center gap-2">
+                                    <span class="w-3.5 h-3.5 rounded-full bg-[#f4f1ea] border border-white/20"></span>
+                                    Text Color:
+                                </span>
+                                <span class="font-mono text-slate-400 font-semibold">#f4f1ea (White Pearl)</span>
+                            </div>
+                        </div>
                     </div>
                 </label>
             </div>
